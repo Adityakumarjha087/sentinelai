@@ -20,6 +20,8 @@ htmlcov/
 data/raw/
 data/processed/
 mlruns/
+mlartifacts/
+mlflow.db
 models/
 
 # OS / editor

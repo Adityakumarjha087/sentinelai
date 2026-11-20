@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     cicids_base_url: str = DEFAULT_CICIDS_BASE_URL
+    models_dir: Path = Path("models")
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
 
     @property
     def raw_dir(self) -> Path:
