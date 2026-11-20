@@ -30,6 +30,7 @@ dependencies = [
 sentinel-data = "data.cli:main"
 sentinel-detect = "detection.train:main"
 sentinel-kb = "rag.cli:main"
+sentinel-eval = "eval.harness:main"
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
