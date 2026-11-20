@@ -22,7 +22,36 @@ the analyst.
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Done on sample data** with the offline analyst; not yet wired to a real LLM or the flow detector |
-| 9 | Docker, CI, final documentation | CI added; Docker not built |
+| 9 | Docker, CI, final documentation | CI passing; **Docker files written but the image build is unverified**; no demo GIF |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Ingest["1 - Data pipeline"]
+        RAW["CICIDS2017 flows<br/>Sysmon XML"] --> NORM["Common event schema<br/>(parquet)"] --> FEAT["86 flow features"]
+    end
+    subgraph Detect["2 - Detection"]
+        FEAT --> AE["Autoencoder /<br/>Isolation Forest"] --> ALERT["Alerts"]
+    end
+    subgraph KB["3 - Knowledge base"]
+        SRC["ATT&CK STIX<br/>known-exploited CVEs"] --> IDX["BM25 + vectors<br/>+ reranker"]
+    end
+    subgraph Agent["4-5 - Agent inside guardrails"]
+        ALERT --> SAN["Sanitize + delimit<br/>untrusted text"] --> LLM["LLM analyst"]
+        LLM <--> TOOLS["Allow-listed<br/>read-only tools"]
+        TOOLS <--> IDX
+        TOOLS <--> NORM
+        LLM --> POL["Policy checks<br/>schema, technique ids,<br/>human approval"]
+    end
+    POL --> REP["6 - Incident report"]
+    POL --> UI["8 - API + dashboard"]
+    POL --> EVAL["7 - Evaluation harness"]
+```
+
+Shown in the diagram but not yet wired together in code: alerts from the Phase 2 detector are
+not yet fed to the agent automatically, and the API/dashboard run on the sample
+Sysmon data with the offline analyst.
 
 ## Layout
 
@@ -76,6 +105,21 @@ make eval         # end-to-end evaluation with the offline analysts
 make api          # HTTP API at http://127.0.0.1:8000/docs
 make ui           # Streamlit dashboard
 ```
+
+### Docker
+
+```bash
+docker compose up --build
+# API        http://localhost:8000/docs
+# Dashboard  http://localhost:8501
+```
+
+**Unverified:** the image build had not completed when these files were
+committed, so `docker compose up` has not been tested end to end.
+
+One image serves both. Containers run as an unprivileged user with all Linux
+capabilities dropped, ports are bound to localhost only, and the API container
+has a read-only filesystem. Linux builds use CPU-only PyTorch wheels.
 
 Configuration lives in environment variables (see `.env.example`); copy it to
 `.env` to override defaults. `.env` is git-ignored.
@@ -247,8 +291,8 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- The evaluation has not been run with a real LLM. PDF reports and Docker are
-  not built.
+- The evaluation has not been run with a real LLM. PDF reports are not built,
+  and there is no demo GIF yet.
 
 ## Phase 6 - incident reports
 
