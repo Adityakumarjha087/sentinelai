@@ -9,7 +9,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
@@ -82,6 +85,24 @@ def reciprocal_rank_fusion(rankings: Sequence[Sequence[str]], k: int = _RRF_K) -
     return fused
 
 
+def _writable_chroma_dir(directory: Path) -> Path:
+    """``directory``, or a private writable copy of its vector store if that is read-only.
+
+    Chroma opens its SQLite file read-write even to query, so an index on a
+    read-only mount (``docker compose`` mounts it ``:ro``) cannot be opened in place.
+    """
+    store = directory / "chroma"
+    if all(os.access(path, os.W_OK) for path in (store, *store.rglob("*"))):
+        return directory
+    copy = Path(tempfile.mkdtemp(prefix="sentinel-kb-"))
+    for path in store.rglob("*"):
+        if path.is_file():
+            target = copy / "chroma" / path.relative_to(store)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)  # contents only: the copy must not inherit read-only modes
+    return copy
+
+
 class HybridRetriever:
     """Searchable knowledge base persisted in a directory."""
 
@@ -146,7 +167,7 @@ class HybridRetriever:
         chunks = [
             Chunk(**json.loads(line)) for line in (directory / _CHUNKS_FILE).read_text(encoding="utf-8").splitlines()
         ]
-        collection = cls._client(directory).get_collection(_COLLECTION)
+        collection = cls._client(_writable_chroma_dir(directory)).get_collection(_COLLECTION)
         return cls(documents, chunks, embedder, collection, reranker)
 
     def get(self, doc_id: str) -> KBDocument | None:

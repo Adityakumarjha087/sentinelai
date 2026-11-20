@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import stat
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -9,7 +11,7 @@ import pytest
 
 from rag.documents import KBDocument, chunk_document, parse_attack, parse_nvd
 from rag.embeddings import HashingEmbedder
-from rag.retriever import HybridRetriever, reciprocal_rank_fusion, tokenize
+from rag.retriever import HybridRetriever, _writable_chroma_dir, reciprocal_rank_fusion, tokenize
 
 
 def technique(stix_id: str, ext_id: str, name: str, text: str, **extra: Any) -> dict[str, Any]:
@@ -195,3 +197,21 @@ def test_index_survives_a_reload(documents: list[KBDocument], tmp_path: Path) ->
     assert len(rebuilt.search("adversaries", top_k=5)) == 1  # the old index was replaced
     with pytest.raises(ValueError, match="no chunks"):
         HybridRetriever.build(documents, [], HashingEmbedder(), tmp_path)
+
+
+def test_a_read_only_index_is_opened_from_a_writable_copy(documents: list[KBDocument], tmp_path: Path) -> None:
+    chunks = [chunk for document in documents for chunk in chunk_document(document)]
+    HybridRetriever.build(documents, chunks, HashingEmbedder(), tmp_path)
+    assert _writable_chroma_dir(tmp_path) == tmp_path
+    paths = [tmp_path / "chroma", *(tmp_path / "chroma").rglob("*")]
+    for path in reversed(paths):  # files before their directories
+        path.chmod(stat.S_IMODE(path.stat().st_mode) & ~0o222)
+    try:
+        copy = _writable_chroma_dir(tmp_path)
+        assert copy != tmp_path
+        assert all(os.access(path, os.W_OK) for path in (copy / "chroma").rglob("*"))
+        loaded = HybridRetriever.load(tmp_path, HashingEmbedder())
+        assert loaded.search("dump credentials from lsass")
+    finally:
+        for path in paths:
+            path.chmod(stat.S_IMODE(path.stat().st_mode) | 0o200)
