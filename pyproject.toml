@@ -12,15 +12,19 @@ license = { text = "MIT" }
 dependencies = [
     "defusedxml>=0.7.1",
     "httpx>=0.27",
+    "mlflow>=2.14",
     "numpy>=1.26",
     "pandas>=2.2",
     "pyarrow>=16",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "scikit-learn>=1.5",
+    "torch>=2.3",
 ]
 
 [project.scripts]
 sentinel-data = "data.cli:main"
+sentinel-detect = "detection.train:main"
 
 [dependency-groups]
 dev = [
@@ -59,5 +63,5 @@ plugins = ["pydantic.mypy"]
 exclude = ["^\\.venv/", "^build/"]
 
 [[tool.mypy.overrides]]
-module = ["defusedxml.*", "pyarrow.*"]
+module = ["defusedxml.*", "pyarrow.*", "sklearn.*", "joblib.*", "mlflow.*"]
 ignore_missing_imports = true
