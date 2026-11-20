@@ -15,6 +15,14 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --locked --no-dev --no-install-project
 
+# The knowledge base's embedding and reranking models, baked in so containers
+# need neither network access nor a writable cache at run time. Keep the names
+# in sync with rag/embeddings.py and rag/retriever.py.
+ENV HF_HOME=/app/.cache/huggingface
+RUN python -c "from sentence_transformers import CrossEncoder, SentenceTransformer; \
+SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+ENV HF_HUB_OFFLINE=1
+
 COPY common ./common
 COPY data ./data
 COPY detection ./detection
