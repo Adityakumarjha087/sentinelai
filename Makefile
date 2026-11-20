@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui
 
 install:
 	uv sync
@@ -11,7 +11,7 @@ typecheck:
 	uv run mypy .
 
 test:
-	uv run pytest --cov=common --cov=data --cov-report=term-missing
+	uv run pytest --cov=common --cov=data --cov=detection --cov-report=term-missing
 
 check: lint typecheck test
 
@@ -28,3 +28,10 @@ demo-data:
 	uv run sentinel-data normalize --dataset synthetic
 	uv run sentinel-data features --dataset synthetic
 	uv run sentinel-data stats --dataset synthetic
+
+# Train both detectors on the real feature tables (~1 minute) and save the best.
+train:
+	uv run sentinel-detect
+
+mlflow-ui:
+	uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
