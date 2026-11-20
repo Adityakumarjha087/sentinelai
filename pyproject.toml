@@ -13,6 +13,8 @@ dependencies = [
     "chromadb>=0.5",
     "defusedxml>=0.7.1",
     "fastapi>=0.115",
+    "fonttools>=4.40",
+    "fpdf2>=2.8",
     "httpx>=0.27",
     "mlflow>=2.14",
     "numpy>=1.26",
@@ -41,6 +43,7 @@ llm = ["anthropic>=0.40"]
 dev = [
     "mypy>=1.10",
     "pandas-stubs>=2.2",
+    "pypdf>=5",
     "pytest>=8",
     "pytest-cov>=5",
     "ruff>=0.5",
@@ -51,6 +54,9 @@ include = [
     "common*", "data*", "detection*", "rag*", "agent*",
     "guardrails*", "eval*", "api*", "ui*",
 ]
+
+[tool.setuptools.package-data]
+agent = ["fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -74,7 +80,10 @@ plugins = ["pydantic.mypy"]
 exclude = ["^\\.venv/", "^build/"]
 
 [[tool.mypy.overrides]]
-module = ["defusedxml.*", "pyarrow.*", "sklearn.*", "joblib.*", "mlflow.*", "rank_bm25.*", "sentence_transformers.*"]
+module = [
+    "defusedxml.*", "pyarrow.*", "sklearn.*", "joblib.*", "mlflow.*", "rank_bm25.*", "sentence_transformers.*",
+    "fontTools.*",
+]
 ignore_missing_imports = true
 
 # On Linux (Docker, CI) use CPU-only PyTorch wheels: the default wheels bundle
