@@ -16,10 +16,14 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.main import alert_from_row, run_investigation
+from agent.investigator import Investigation
+from agent.report import render_report_pdf
+from agent.verdict import Verdict
+from api.main import alert_from_row, report_filename, run_investigation
 from api.resources import Resources, load_resources
 from detection.service import GROUND_TRUTH, flow_alert
 from guardrails.injection import detect_injection
+from rag.retriever import HybridRetriever
 
 HOST_COLUMNS = ["timestamp", "event_type", "host", "process", "dst_ip", "injection_suspected"]
 FLOW_COLUMNS = ["timestamp", "src_ip", "dst_ip", "dst_port", "anomaly_score", GROUND_TRUTH]
@@ -50,7 +54,18 @@ def status_line(loaded: Resources) -> str:
     )
 
 
-def show_result(result: dict[str, Any] | None, alert: dict[str, Any]) -> None:
+def report_pdf(result: dict[str, Any], alert: dict[str, Any], retriever: HybridRetriever | None) -> bytes:
+    """The PDF report for one result, rendered on first use and kept with the result."""
+    if "report_pdf" not in result:
+        investigation = Investigation(
+            verdict=Verdict.model_validate(result["verdict"]), trace=result["trace"], **result["usage"]
+        )
+        result["report_pdf"] = render_report_pdf(alert, investigation, retriever=retriever)
+    pdf: bytes = result["report_pdf"]
+    return pdf
+
+
+def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever: HybridRetriever | None) -> None:
     """Verdict, guardrail notes, trace and report for one investigated alert."""
     with st.expander("What the analyst sees"):
         st.json(alert)
@@ -71,11 +86,20 @@ def show_result(result: dict[str, Any] | None, alert: dict[str, Any]) -> None:
         st.json(result["trace"])
     with st.expander("Incident report"):
         st.markdown(result["report_markdown"])
-    st.download_button(
+    markdown_column, pdf_column = st.columns(2)
+    markdown_column.download_button(
         "Download report (.md)",
         result["report_markdown"],
-        file_name=f"incident-{alert['event_id']}.md",
-        key=f"download-{alert['event_id']}",
+        file_name=report_filename(alert, "md"),
+        mime="text/markdown",
+        key=f"download-md-{alert['event_id']}",
+    )
+    pdf_column.download_button(
+        "Download report (.pdf)",
+        report_pdf(result, alert, retriever),
+        file_name=report_filename(alert, "pdf"),
+        mime="application/pdf",
+        key=f"download-pdf-{alert['event_id']}",
     )
 
 
@@ -116,7 +140,7 @@ def alert_panel(
         alert = to_alert(rows[int(choice or 0)])
         if st.button("Investigate", key=f"{key}-one"):
             results[alert["event_id"]] = run_investigation(alert, events, loaded.retriever, None)
-        show_result(results.get(alert["event_id"]), alert)
+        show_result(results.get(alert["event_id"]), alert, loaded.retriever)
 
 
 def network_caption(summary: dict[str, Any], shown: int) -> str:

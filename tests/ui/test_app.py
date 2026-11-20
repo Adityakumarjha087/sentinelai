@@ -40,6 +40,8 @@ def test_dashboard_renders_feed_and_investigates_an_alert() -> None:
     assert not app.exception
     assert [metric.label for metric in app.metric] == ["Verdict", "Severity", "Confidence"]
     assert "Not investigated yet." not in infos(app)
+    (result,) = app.session_state["results"].values()
+    assert result["report_pdf"].startswith(b"%PDF-")  # rendered for the download button
 
 
 def test_investigate_all_flags_the_injected_alert_for_review() -> None:

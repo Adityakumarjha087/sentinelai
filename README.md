@@ -422,7 +422,7 @@ the evidence for a stored event this way.
 **Dashboard** (`make ui`): a host-events tab and a network-detections tab,
 each with its feed, bulk and single investigation, verdict, severity,
 confidence, guardrail warnings, the reasoning trace, what the analyst was
-shown, a severity chart, and a one-click report download.
+shown, a severity chart, and report downloads in Markdown and PDF.
 
 Both load the knowledge base and detector when they are built and say plainly
 when they are not. Investigations use the offline rule-based analyst
