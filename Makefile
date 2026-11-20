@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval
 
 install:
 	uv sync
@@ -11,7 +11,7 @@ typecheck:
 	uv run mypy .
 
 test:
-	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov=agent --cov=guardrails --cov=api --cov-report=term-missing
+	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov=agent --cov=guardrails --cov=api --cov=eval --cov-report=term-missing
 
 check: lint typecheck test
 
@@ -39,3 +39,7 @@ mlflow-ui:
 # Build the ATT&CK + CVE knowledge base (downloads ~50 MB of data and two small models).
 kb:
 	uv run sentinel-kb build
+
+# End-to-end evaluation with the offline baseline analysts.
+eval:
+	uv run sentinel-eval

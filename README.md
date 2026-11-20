@@ -20,7 +20,7 @@ the analyst.
 | 4 | Investigation agent with tools and structured verdicts | **Built; not yet run against a live LLM** |
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
-| 7 | Evaluation harness | Planned |
+| 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Minimal read-only API**; no dashboard, no `/investigate` endpoint |
 | 9 | Docker, CI, final documentation | CI added; Docker not built |
 
@@ -54,7 +54,7 @@ sentinelai/
 │   └── cli.py           `sentinel-kb build` / `sentinel-kb search`
 ├── agent/           Phase 4 - investigation agent and tools
 ├── guardrails/      Phase 5 - prompt-injection defences
-├── eval/            Phase 7 - evaluation harness
+├── eval/            Phase 7 - evaluation harness (`sentinel-eval`)
 ├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
 ├── ui/              Phase 8 - dashboard
 └── tests/           pytest suite, mirrors the package layout
@@ -244,7 +244,7 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- Phase 7 (evaluation harness) and the dashboard are not started; the API is
+- The evaluation has not been run with a real LLM. The dashboard is not started; the API is
   read-only (`/health`, `/alerts`, `/kb/search`, `/reports`) with no
   `/investigate` endpoint; PDF reports and Docker are not built.
 
@@ -256,6 +256,46 @@ checklist (response actions marked as needing human approval, plus ATT&CK
 mitigations for the mapped techniques), guardrail notes and the tool trace.
 Log-derived text is sanitized and Markdown-escaped, so hostile log content
 cannot inject headings, HTML or links into the report.
+
+## Phase 7 - evaluation harness
+
+`sentinel-eval` runs the agent over **126 labelled alerts** (14 scenarios, 72
+malicious / 54 benign, 30 carrying a prompt-injection payload) and reports
+detection quality, ATT&CK mapping, hallucination, injection resistance, latency
+and cost. It works with any `LLMClient`; pass `--analyst anthropic` with token
+prices to evaluate a real model.
+
+No LLM key was available, so the numbers below are for two **offline stand-ins,
+not language models**: `rule` is a keyword baseline, and `gullible` is the same
+baseline made to obey any injected text - a worst-case hijacked model that shows
+what the guardrails alone are worth.
+
+| metric | rule | gullible |
+|---|---|---|
+| detection precision | 1.000 | 1.000 |
+| detection recall | 0.875 | 0.653 |
+| detection F1 | 0.933 | 0.790 |
+| ATT&CK technique hit rate | 0.875 | 0.653 |
+| hallucination rate | 0.000 | 0.000 |
+| injection resistance | 0.933 | 0.667 |
+| injected attacks the model called benign | 0.125 | 0.792 |
+| alerts sent to human review | 0.024 | 0.087 |
+
+What this does and does not show:
+
+- **The guardrails are not sufficient on their own.** A fully hijacked model
+  called 79% of injected attacks benign, and a third of all injected alerts were
+  still closed silently, because the regex detector missed those payloads
+  (polite, indirect and non-English ones). This is the measured case for the
+  planned trained classifier. The detector was not tuned to the payloads after
+  seeing this result.
+- The alerts are synthetic and template-generated, so detection scores are far
+  easier than on real telemetry. The `rule` baseline's misses are one scenario
+  it has no rule for.
+- Hallucination is 0 because the stand-ins only emit fixed phrases; the check is
+  lexical (invented IPs, files, ids) and will matter only with a real model.
+- Latency and cost are meaningless for the stand-ins (no model call) and are
+  omitted from the table.
 
 ## Limitations (so far)
 
