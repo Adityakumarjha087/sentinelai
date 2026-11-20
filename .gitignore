@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Datasets and derived artifacts (re-creatable with `sentinel-data`)
+data/raw/
+data/processed/
+mlruns/
+models/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
