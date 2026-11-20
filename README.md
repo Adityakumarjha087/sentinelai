@@ -349,6 +349,13 @@ What this does and does not show:
 flagged if it looks like an injection), `GET /kb/search`, `POST /investigate`
 (verdict, tool trace and Markdown report) and `POST /reports`.
 
+`/investigate` looks up any `event_id` it already stores and investigates the
+stored record, not the client's copy (`alert_source` in the response says
+which). The feed shows only a few fields per event, so an alert posted back
+from it used to omit the command line - which is where the sample's injection
+payload sits - and was closed as benign. A client also cannot trim or rewrite
+the evidence for a stored event this way.
+
 **Dashboard** (`make ui`): alert feed, per-alert investigation with verdict,
 severity, confidence, guardrail warnings and the reasoning trace, a severity
 chart for investigated alerts, and a one-click report download.

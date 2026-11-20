@@ -43,6 +43,26 @@ class InvestigateRequest(BaseModel):
     alert: dict[str, Any]
 
 
+def alert_from_row(row: pd.Series) -> dict[str, str]:
+    """Every populated field of one stored event, sanitized, as the analyst sees it."""
+    return {str(key): sanitize_text(value, 600) for key, value in row.items() if key != "raw" and not pd.isna(value)}
+
+
+def resolve_alert(alert: dict[str, Any], events: pd.DataFrame) -> tuple[dict[str, Any], str]:
+    """Swap a client's copy of a known event for the stored record.
+
+    The feed shows only a few fields per event, so a client posting an alert back
+    may have dropped the very field that carries an injection payload. The stored
+    record is the evidence; a client cannot trim or rewrite it.
+    """
+    event_id = alert.get("event_id")
+    if isinstance(event_id, str) and "event_id" in events:
+        match = events[events["event_id"] == event_id]
+        if len(match):
+            return alert_from_row(match.iloc[0]), "stored_event"
+    return alert, "request"
+
+
 def run_investigation(
     alert: dict[str, Any], events: pd.DataFrame, retriever: HybridRetriever | None, llm: LLMClient | None
 ) -> dict[str, Any]:
@@ -90,7 +110,8 @@ def create_app(events: pd.DataFrame, retriever: HybridRetriever | None = None, l
 
     @app.post("/investigate")
     def investigate_alert(request: InvestigateRequest) -> dict[str, Any]:
-        return run_investigation(request.alert, events, retriever, llm)
+        alert, source = resolve_alert(request.alert, events)
+        return run_investigation(alert, events, retriever, llm) | {"alert_source": source}
 
     @app.post("/reports", response_class=PlainTextResponse)
     def report(request: ReportRequest) -> PlainTextResponse:

@@ -80,6 +80,37 @@ def test_injected_benign_looking_alert_is_escalated(client: TestClient) -> None:
     assert verdict["needs_human_review"] is True
 
 
+def test_alert_posted_back_from_the_feed_is_investigated_from_the_stored_event(client: TestClient) -> None:
+    # The feed omits the command line, which is where the sample's injection payload sits.
+    flagged = next(
+        alert for alert in client.get("/alerts", params={"limit": 13}).json() if alert["injection_suspected"]
+    )
+    assert "command_line" not in flagged
+    body = client.post("/investigate", json={"alert": flagged}).json()
+    assert body["alert_source"] == "stored_event"
+    verdict = body["verdict"]
+    # Before the fix this came back benign with no injection note: the payload never reached the analyst.
+    assert verdict["is_malicious"] is True
+    assert any("instructions to an AI system" in note for note in verdict["notes"])
+
+
+def test_client_cannot_rewrite_the_evidence_of_a_stored_event(client: TestClient) -> None:
+    flagged = next(
+        alert for alert in client.get("/alerts", params={"limit": 13}).json() if alert["injection_suspected"]
+    )
+    forged = {"event_id": flagged["event_id"], "command_line": "notepad.exe"}
+    body = client.post("/investigate", json={"alert": forged}).json()
+    assert body["alert_source"] == "stored_event"
+    assert body["verdict"]["is_malicious"] is True
+    assert any("instructions to an AI system" in note for note in body["verdict"]["notes"])
+
+
+def test_unknown_event_ids_are_investigated_as_sent(client: TestClient) -> None:
+    body = client.post("/investigate", json={"alert": {"event_id": "not-stored", "process": "x.exe"}}).json()
+    assert body["alert_source"] == "request"
+    assert client.post("/investigate", json={"alert": {"event_id": ["a"]}}).json()["alert_source"] == "request"
+
+
 def test_default_app_serves_the_bundled_sample() -> None:
     from api.main import default_app
 

@@ -14,12 +14,11 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.main import run_investigation
+from api.main import alert_from_row, run_investigation
 from common.settings import get_settings
 from data.parsers.sysmon import parse_sysmon_file
 from data.schema import events_to_frame
 from guardrails.injection import detect_injection
-from guardrails.sanitize import sanitize_text
 
 FEED_COLUMNS = ["timestamp", "event_type", "host", "process", "dst_ip", "injection_suspected"]
 
@@ -32,11 +31,6 @@ def load_events() -> pd.DataFrame:
     text = frame.astype(object).fillna("").astype(str).agg(" ".join, axis=1)
     frame["injection_suspected"] = [detect_injection(row).is_suspicious for row in text]
     return frame.sort_values("timestamp", ascending=False).reset_index(drop=True)
-
-
-def alert_from_row(row: pd.Series) -> dict[str, str]:
-    """The fields of one event that are worth showing to the analyst."""
-    return {str(key): sanitize_text(value, 600) for key, value in row.items() if key != "raw" and not pd.isna(value)}
 
 
 def main() -> None:
