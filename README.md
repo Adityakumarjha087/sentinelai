@@ -22,7 +22,7 @@ the analyst.
 | 6 | Incident reports (Markdown / PDF) | **Done** |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Done**: host events and Phase 2 flow detections, investigated with the knowledge base; offline analyst only (no LLM run yet) |
-| 9 | Docker, CI, final documentation | CI passing; `docker compose up` verified locally (API + dashboard); no demo GIF |
+| 9 | Docker, CI, final documentation | CI passing, including a build and smoke test of the `linux/amd64` image; `linux/arm64` and `linux/amd64` verified locally with real artifacts; no demo GIF |
 
 ## Architecture
 
@@ -126,12 +126,26 @@ command that builds it. The embedding and reranking models are baked into the
 image, so containers need no network at run time. Chroma cannot open a
 read-only index, so the loader opens a private temporary copy of it.
 
-Verified on Docker 29.7 / Compose v5.5 (Apple silicon, so a `linux/arm64`
-image), with and without the artifacts mounted: the API turns healthy (about
-40 s with the knowledge base and detector), `/detections`, `/kb/search` and
-`/investigate` respond, and the dashboard renders both feeds and investigates
-without errors. The image is about 1.3 GB compressed (6 GB unpacked), mostly
-PyTorch and the ML stack. The `linux/amd64` image has not been built.
+`make smoke` (`scripts/smoke_test.py`, standard library only) checks a running
+deployment end to end: health, the injection-flagged alert investigated from
+its stored record, a PDF report, `/detections` (or its 503 when no detector is
+built), opaque flow ids with no dataset label in responses, a knowledge-base
+query, and the dashboard. Pass `--expect-kb --expect-detector` to require the
+artifacts.
+
+Verified with Docker 29.7 / Compose v5.5 on Apple silicon, with the real
+knowledge base and detector mounted, on both architectures:
+
+| Image | How | API ready | Smoke test |
+|---|---|---|---|
+| `linux/arm64` | native | ~40 s | all 19 checks pass |
+| `linux/amd64` | `docker buildx --platform linux/amd64`, run under emulation | ~31 s | all 19 checks pass |
+
+Both images flag the same 162,678 of 286,467 port-scan-day flows, and the
+dashboard renders both feeds, investigates and produces PDFs on each. CI also
+builds the `linux/amd64` image natively on every push (`docker` job) and runs
+the smoke test against `docker compose up` without artifacts. Each image is
+about 1.3-1.4 GB compressed, mostly PyTorch and the ML stack.
 
 One image serves both; the dashboard runs investigations in-process rather
 than calling the API. Containers run as an unprivileged user with all Linux
