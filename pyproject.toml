@@ -76,3 +76,13 @@ exclude = ["^\\.venv/", "^build/"]
 [[tool.mypy.overrides]]
 module = ["defusedxml.*", "pyarrow.*", "sklearn.*", "joblib.*", "mlflow.*", "rank_bm25.*", "sentence_transformers.*"]
 ignore_missing_imports = true
+
+# On Linux (Docker, CI) use CPU-only PyTorch wheels: the default wheels bundle
+# several GB of CUDA libraries this project never uses.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
