@@ -19,7 +19,7 @@ import pandas as pd
 from guardrails.sanitize import sanitize_text, wrap_untrusted
 from rag.retriever import HybridRetriever
 
-_EVENT_COLUMNS = [  # noqa: E501
+_EVENT_COLUMNS = [
     "event_id",
     "timestamp",
     "event_type",
