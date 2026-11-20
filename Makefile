@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui smoke
 
 install:
 	uv sync
@@ -44,10 +44,14 @@ kb:
 eval:
 	uv run sentinel-eval
 
-# HTTP API over the bundled sample data (http://127.0.0.1:8000/docs).
+# HTTP API over the sample data plus any built artifacts (http://127.0.0.1:8000/docs).
 api:
 	uv run uvicorn --factory api.main:default_app
 
 # Streamlit dashboard.
 ui:
 	uv run streamlit run ui/app.py
+
+# Check a running deployment (e.g. after `docker compose up`); stdlib only.
+smoke:
+	python3 scripts/smoke_test.py
