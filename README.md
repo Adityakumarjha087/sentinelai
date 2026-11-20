@@ -19,7 +19,7 @@ the analyst.
 | 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | **Done** |
 | 4 | Investigation agent with tools and structured verdicts | **Built; not yet run against a live LLM** |
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
-| 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
+| 6 | Incident reports (Markdown / PDF) | **Done** |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Done**: host events and Phase 2 flow detections, investigated with the knowledge base; offline analyst only (no LLM run yet) |
 | 9 | Docker, CI, final documentation | CI passing; `docker compose up` verified locally (API + dashboard); no demo GIF |
@@ -84,7 +84,8 @@ sentinelai/
 │   ├── embeddings.py    sentence-transformers and offline hashing embedders
 │   ├── retriever.py     BM25 + ChromaDB vectors, RRF fusion, cross-encoder rerank
 │   └── cli.py           `sentinel-kb build` / `sentinel-kb search`
-├── agent/           Phase 4 - investigation agent and tools
+├── agent/           Phases 4 and 6 - investigation agent, tools, incident reports
+│   └── fonts/           DejaVu Sans for PDF reports (Bitstream Vera licence)
 ├── guardrails/      Phase 5 - prompt-injection defences
 ├── eval/            Phase 7 - evaluation harness (`sentinel-eval`)
 ├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
@@ -307,17 +308,36 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- The evaluation has not been run with a real LLM. PDF reports are not built,
-  and there is no demo GIF yet.
+- The evaluation has not been run with a real LLM, and there is no demo GIF
+  yet.
 
 ## Phase 6 - incident reports
 
-`agent.report.render_report` turns an investigation into a Markdown report:
-summary, event timeline, ATT&CK mapping with links, evidence, remediation
-checklist (response actions marked as needing human approval, plus ATT&CK
-mitigations for the mapped techniques), guardrail notes and the tool trace.
-Log-derived text is sanitized and Markdown-escaped, so hostile log content
-cannot inject headings, HTML or links into the report.
+An investigation becomes an incident report in Markdown
+(`agent.report.render_report`) or PDF (`render_report_pdf`): summary, event
+timeline, ATT&CK mapping with links, evidence, remediation checklist (response
+actions marked as needing human approval, plus ATT&CK mitigations for the
+mapped techniques), guardrail notes and the tool trace. One function,
+`report_content`, decides what a report says; the two renderers only lay it
+out, so the formats cannot drift apart.
+
+Everything that came from a log, a model or an API client is treated as
+hostile:
+
+- **Markdown:** every such field is sanitized and escaped, so it cannot inject
+  headings, HTML, links or code spans. Two gaps were closed while adding PDF:
+  technique ids posted to `/reports` (which skips the agent's policy checks)
+  and tool names chosen by the model were written into the Markdown
+  unescaped.
+- **PDF** (fpdf2): text is written literally - fpdf2 interprets no markup -
+  and links are created only for knowledge-base URLs on `attack.mitre.org` or
+  `nvd.nist.gov`. Characters the bundled font cannot draw (CJK, emoji) are
+  replaced with a visible U+FFFD instead of silently disappearing; the
+  Markdown report keeps the original text.
+
+PDF reports are available from `POST /reports?format=pdf` and from the
+dashboard's download button. The download file name is built only from safe
+characters of the event id.
 
 ## Phase 7 - evaluation harness
 
@@ -430,4 +450,5 @@ Dataset and Intrusion Traffic Characterization", ICISSP 2018.
 
 ## License
 
-MIT
+MIT. The bundled DejaVu Sans fonts (`agent/fonts/`) are under their own
+licence, included as `agent/fonts/LICENSE_DEJAVU`.
