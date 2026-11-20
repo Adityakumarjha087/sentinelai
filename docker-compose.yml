@@ -21,11 +21,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # The dashboard runs investigations in-process; it does not call the API.
   ui:
+    build: .
     image: sentinelai:latest
-    depends_on:
-      api:
-        condition: service_healthy
     command: ["streamlit", "run", "ui/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true", "--browser.gatherUsageStats", "false"]
     ports:
       - "127.0.0.1:8501:8501"
