@@ -46,7 +46,7 @@ def main() -> None:
     feed, detail = st.columns([3, 2])
     with feed:
         st.subheader("Alert feed")
-        st.dataframe(events[FEED_COLUMNS], hide_index=True, use_container_width=True)
+        st.dataframe(events[FEED_COLUMNS], hide_index=True, width="stretch")
         if st.button("Investigate all"):
             for _, row in events.iterrows():
                 alert = alert_from_row(row)
