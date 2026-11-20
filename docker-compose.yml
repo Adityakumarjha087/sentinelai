@@ -35,7 +35,7 @@ services:
   ui:
     build: .
     image: sentinelai:latest
-    command: ["streamlit", "run", "ui/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true", "--browser.gatherUsageStats", "false"]
+    command: ["streamlit", "run", "ui/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true", "--browser.gatherUsageStats", "false", "--client.toolbarMode", "minimal"]
     ports:
       - "127.0.0.1:8501:8501"
     volumes: *artifacts
