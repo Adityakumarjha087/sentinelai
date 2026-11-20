@@ -21,7 +21,7 @@ the analyst.
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
-| 8 | Dashboard + API | **Minimal read-only API**; no dashboard, no `/investigate` endpoint |
+| 8 | Dashboard + API | **Done on sample data** with the offline analyst; not yet wired to a real LLM or the flow detector |
 | 9 | Docker, CI, final documentation | CI added; Docker not built |
 
 ## Layout
@@ -56,7 +56,7 @@ sentinelai/
 ├── guardrails/      Phase 5 - prompt-injection defences
 ├── eval/            Phase 7 - evaluation harness (`sentinel-eval`)
 ├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
-├── ui/              Phase 8 - dashboard
+├── ui/              Phase 8 - Streamlit dashboard (`ui/app.py`)
 └── tests/           pytest suite, mirrors the package layout
 ```
 
@@ -72,6 +72,9 @@ make data         # real CICIDS2017 (~306 MB download, ~2 min processing)
 make train        # train both detectors, log to MLflow, save the best (~1 min)
 make mlflow-ui    # browse the tracked runs
 make kb           # download ATT&CK + known-exploited CVEs and build the index
+make eval         # end-to-end evaluation with the offline analysts
+make api          # HTTP API at http://127.0.0.1:8000/docs
+make ui           # Streamlit dashboard
 ```
 
 Configuration lives in environment variables (see `.env.example`); copy it to
@@ -244,9 +247,8 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- The evaluation has not been run with a real LLM. The dashboard is not started; the API is
-  read-only (`/health`, `/alerts`, `/kb/search`, `/reports`) with no
-  `/investigate` endpoint; PDF reports and Docker are not built.
+- The evaluation has not been run with a real LLM. PDF reports and Docker are
+  not built.
 
 ## Phase 6 - incident reports
 
@@ -296,6 +298,21 @@ What this does and does not show:
   lexical (invented IPs, files, ids) and will matter only with a real model.
 - Latency and cost are meaningless for the stand-ins (no model call) and are
   omitted from the table.
+
+## Phase 8 - API and dashboard
+
+**API** (`make api`): `GET /health`, `GET /alerts` (sanitized feed, each alert
+flagged if it looks like an injection), `GET /kb/search`, `POST /investigate`
+(verdict, tool trace and Markdown report) and `POST /reports`.
+
+**Dashboard** (`make ui`): alert feed, per-alert investigation with verdict,
+severity, confidence, guardrail warnings and the reasoning trace, a severity
+chart for investigated alerts, and a one-click report download.
+
+Both currently serve the bundled synthetic Sysmon sample and investigate with
+the offline rule-based analyst (responses name the analyst used). They are not
+yet connected to a real LLM, the knowledge base, or the Phase 2 flow detector,
+and the feed is a static sample rather than a live stream.
 
 ## Limitations (so far)
 

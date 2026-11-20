@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui
 
 install:
 	uv sync
@@ -11,7 +11,7 @@ typecheck:
 	uv run mypy .
 
 test:
-	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov=agent --cov=guardrails --cov=api --cov=eval --cov-report=term-missing
+	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov=agent --cov=guardrails --cov=api --cov=eval --cov=ui --cov-report=term-missing
 
 check: lint typecheck test
 
@@ -43,3 +43,11 @@ kb:
 # End-to-end evaluation with the offline baseline analysts.
 eval:
 	uv run sentinel-eval
+
+# HTTP API over the bundled sample data (http://127.0.0.1:8000/docs).
+api:
+	uv run uvicorn --factory api.main:default_app
+
+# Streamlit dashboard.
+ui:
+	uv run streamlit run ui/app.py
