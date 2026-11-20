@@ -23,6 +23,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "scikit-learn>=1.5",
     "sentence-transformers>=3",
+    "streamlit>=1.38",
     "torch>=2.3",
 ]
 
