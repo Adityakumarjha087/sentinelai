@@ -24,3 +24,19 @@ jobs:
       - run: uv run pytest -q
         env:
           MLFLOW_DISABLE_AGENT_HINT: "1"
+
+  docker:
+    # GitHub's runners are x86-64, so this builds and exercises the linux/amd64
+    # image through the real compose file. No artifacts are built here, so the
+    # services run on the Sysmon sample and /detections must answer 503.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build --detach --wait --wait-timeout 300
+      - run: docker image ls sentinelai
+      - run: python3 scripts/smoke_test.py
+      - if: failure()
+        run: docker compose logs --tail 200
+      - if: always()
+        run: docker compose down
