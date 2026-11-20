@@ -10,6 +10,12 @@ the analyst.
 
 > **Defensive use only.** This project contains no offensive tooling.
 
+![SentinelAI dashboard: a prompt-injected Sysmon alert investigated and flagged, its incident report, the flow detector's alerts and their investigation, and the REST API](docs/demo.gif)
+
+_Recorded with `make demo-gif` against `docker compose up` with the real
+CICIDS2017 detector and ATT&CK knowledge base loaded. Investigations use the
+offline rule-based analyst, not a language model._
+
 ## Status
 
 | Phase | Scope | State |
@@ -22,7 +28,7 @@ the analyst.
 | 6 | Incident reports (Markdown / PDF) | **Done** |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Done**: host events and Phase 2 flow detections, investigated with the knowledge base; offline analyst only (no LLM run yet) |
-| 9 | Docker, CI, final documentation | CI passing, including a build and smoke test of the `linux/amd64` image; `linux/arm64` and `linux/amd64` verified locally with real artifacts; no demo GIF |
+| 9 | Docker, CI, final documentation | **Done**: CI builds and smoke-tests the `linux/amd64` image; `linux/arm64` and `linux/amd64` verified locally with real artifacts; demo GIF |
 
 ## Architecture
 
@@ -91,6 +97,8 @@ sentinelai/
 ├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
 │   └── resources.py     loads the sample, knowledge base and detector when built
 ├── ui/              Phase 8 - Streamlit dashboard (`ui/app.py`)
+├── scripts/         `smoke_test.py` (deployment check), `record_demo.py` (demo GIF)
+├── docs/            demo.gif
 └── tests/           pytest suite, mirrors the package layout
 ```
 
@@ -322,8 +330,7 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- The evaluation has not been run with a real LLM, and there is no demo GIF
-  yet.
+- The evaluation has not been run with a real LLM.
 
 ## Phase 6 - incident reports
 
