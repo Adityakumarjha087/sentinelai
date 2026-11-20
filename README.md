@@ -13,7 +13,7 @@ the analyst.
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Data pipeline: download, parse, normalize, feature engineering | **Done** |
-| 2 | Detection models (Isolation Forest + PyTorch), MLflow | Planned |
+| 2 | Detection models (Isolation Forest + PyTorch autoencoder), MLflow | **Done** |
 | 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | Planned |
 | 4 | Investigation agent with tools and structured verdicts | Planned |
 | 5 | Guardrails: sanitization, injection classifier, tool allow-list | Planned |
@@ -40,7 +40,11 @@ sentinelai/
 │   ├── samples/         small synthetic Sysmon sample (committed)
 │   ├── raw/             downloads (git-ignored)
 │   └── processed/       normalized events + feature tables (git-ignored)
-├── detection/       Phase 2 - anomaly detection models
+├── detection/       Phase 2 - anomaly detection
+│   ├── dataset.py       benign-only train split, stratified validation/test
+│   ├── models.py        Isolation Forest and autoencoder behind one interface
+│   ├── metrics.py       threshold selection, precision/recall/F1/AUC
+│   └── train.py         `sentinel-detect`: train, compare, track, save best
 ├── rag/             Phase 3 - ATT&CK / CVE knowledge base
 ├── agent/           Phase 4 - investigation agent and tools
 ├── guardrails/      Phase 5 - prompt-injection defences
@@ -59,6 +63,8 @@ make install      # create .venv and install dependencies
 make check        # ruff + mypy --strict + pytest
 make demo-data    # offline: synthetic flows through the whole pipeline
 make data         # real CICIDS2017 (~306 MB download, ~2 min processing)
+make train        # train both detectors, log to MLflow, save the best (~1 min)
+make mlflow-ui    # browse the tracked runs
 ```
 
 Configuration lives in environment variables (see `.env.example`); copy it to
@@ -110,6 +116,68 @@ attacker-controllable and are treated as data, never as instructions.
   expansion and external entities are rejected) and every text field is
   length-capped. The sample log includes a prompt-injection string so later
   phases can prove the agent ignores it.
+
+## Phase 2 - detection models
+
+Two anomaly detectors share one interface (`fit` on benign rows, `score` any
+rows, higher = more anomalous):
+
+- **Isolation Forest** - classical baseline (200 trees).
+- **Autoencoder** (PyTorch) - 86 -> 64 -> 32 -> 12 -> 32 -> 64 -> 86, scored by
+  reconstruction error, early stopping on a benign hold-out.
+
+**Protocol.** Models are fitted on 300,000 benign flows from Monday only - no
+attacks, no labels. The other four days are split 50/50, stratified by attack
+label: the validation half is used only to pick the alert threshold (max F1) and
+to choose between the models; every number below is from the untouched test
+half (1,150,408 flows, 24% attacks).
+
+| model | precision | recall | F1 | false-positive rate | ROC-AUC | PR-AUC | fit time |
+|---|---|---|---|---|---|---|---|
+| Isolation Forest | 0.706 | 0.835 | 0.765 | 0.112 | 0.925 | 0.661 | 1 s |
+| **Autoencoder** | 0.769 | 0.964 | **0.855** | 0.093 | **0.947** | 0.737 | 15 s |
+
+Share of each attack type that raises an alert (test half):
+
+| attack | Isolation Forest | Autoencoder |
+|---|---|---|
+| PortScan | 0.999 | 1.000 |
+| DDoS | 0.974 | 1.000 |
+| DoS Hulk | 0.694 | 0.996 |
+| DoS Slowhttptest | 0.998 | 0.996 |
+| DoS slowloris | 0.997 | 0.960 |
+| Heartbleed | 1.000 | 1.000 |
+| Infiltration | 0.833 | 0.778 |
+| DoS GoldenEye | 0.580 | 0.641 |
+| Bot | 0.264 | 0.616 |
+| FTP-Patator | 0.509 | 0.172 |
+| SSH-Patator | 0.007 | 0.006 |
+| Web Attack - Brute Force | 0.045 | 0.000 |
+| Web Attack - XSS | 0.037 | 0.000 |
+| Web Attack - Sql Injection | 0.000 | 0.000 |
+
+**Reading these honestly**
+
+- Volumetric attacks (scans, floods) are caught almost completely; they change
+  flow counts and shapes, which is exactly what these features measure.
+- Web attacks and SSH brute force are essentially **missed**. At the flow level
+  they look like ordinary HTTP/SSH sessions; catching them needs payload or
+  authentication-log signals, which is what the investigation agent and the
+  Sysmon/host data are for.
+- A 9% false-positive rate is far too noisy to page a human on. The detector is
+  a recall-oriented *first stage*: it nominates flows, and the agent (Phase 4)
+  triages them.
+- Results come from a single run with seed 42; no confidence intervals yet.
+- The threshold is tuned on labelled validation data, so the F1 figures are
+  optimistic compared with a deployment that has no labels to tune on. ROC-AUC
+  and PR-AUC do not depend on the threshold.
+
+Every run is logged to MLflow (parameters, validation and test metrics,
+per-attack recall, autoencoder loss curve, model files). The best model by
+validation F1 is saved to `models/<dataset>/best/` with its threshold, feature
+order and file checksums; `detection.train.load_model` refuses files whose
+checksum changed. The autoencoder is loaded with `weights_only=True`; the
+Isolation Forest uses joblib (pickle), so only load model files you produced.
 
 ## Limitations (so far)
 
