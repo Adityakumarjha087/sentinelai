@@ -22,7 +22,7 @@ the analyst.
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
 | 8 | Dashboard + API | **Done on sample data** with the offline analyst; not yet wired to a real LLM or the flow detector |
-| 9 | Docker, CI, final documentation | CI passing; **Docker files written but the image build is unverified**; no demo GIF |
+| 9 | Docker, CI, final documentation | CI passing; `docker compose up` verified locally (API + dashboard); no demo GIF |
 
 ## Architecture
 
@@ -114,10 +114,15 @@ docker compose up --build
 # Dashboard  http://localhost:8501
 ```
 
-**Unverified:** the image build had not completed when these files were
-committed, so `docker compose up` has not been tested end to end.
+Verified on Docker 29.7 / Compose v5.5 (Apple silicon, so a `linux/arm64`
+image): the API turns healthy, `/docs` and `/alerts` respond, an injected
+alert investigated through the API is escalated, and the dashboard runs an
+"Investigate all" pass without errors. The image is about 1.2 GB compressed
+(5.6 GB unpacked), mostly PyTorch and the ML stack. The `linux/amd64` image
+has not been built.
 
-One image serves both. Containers run as an unprivileged user with all Linux
+One image serves both; the dashboard runs investigations in-process rather
+than calling the API. Containers run as an unprivileged user with all Linux
 capabilities dropped, ports are bound to localhost only, and the API container
 has a read-only filesystem. Linux builds use CPU-only PyTorch wheels.
 
