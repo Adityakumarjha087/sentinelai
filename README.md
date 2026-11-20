@@ -1,5 +1,7 @@
 # SentinelAI - Autonomous AI SOC Analyst
 
+[![CI](https://github.com/Adityakumarjha087/sentinelai/actions/workflows/ci.yml/badge.svg)](https://github.com/Adityakumarjha087/sentinelai/actions/workflows/ci.yml)
+
 A defensive security system that ingests security logs, detects anomalies with
 ML, investigates alerts with an LLM agent, maps them to MITRE ATT&CK, enriches
 them with threat intelligence (RAG) and writes incident reports - while treating
