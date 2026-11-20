@@ -26,8 +26,8 @@ COPY api ./api
 COPY ui ./ui
 RUN uv sync --locked --no-dev
 
-# Run as an unprivileged user.
-RUN useradd --create-home --uid 10001 sentinel && chown -R sentinel /app
+# Run as an unprivileged user; it only needs to read /app.
+RUN useradd --create-home --uid 10001 sentinel
 USER sentinel
 ENV HOME=/home/sentinel
 
