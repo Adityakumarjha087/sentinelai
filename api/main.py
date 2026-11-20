@@ -8,16 +8,17 @@ loaded and why any are not.
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Literal
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict
 
 from agent.investigator import Investigation, investigate
 from agent.llm import LLMClient
-from agent.report import render_report
+from agent.report import render_report, render_report_pdf
 from agent.tools import ToolBox
 from agent.verdict import Verdict
 from api.resources import Resources, load_resources
@@ -87,8 +88,15 @@ def run_investigation(
         "analyst": type(analyst).__name__,
         "verdict": investigation.verdict.model_dump(),
         "trace": investigation.trace,
+        "usage": {"input_tokens": investigation.input_tokens, "output_tokens": investigation.output_tokens},
         "report_markdown": render_report(alert, investigation, retriever=retriever),
     }
+
+
+def report_filename(alert: dict[str, Any], extension: str) -> str:
+    """A download name built only from safe characters of the event id."""
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", str(alert.get("event_id", "alert")))[:80].strip("._") or "alert"
+    return f"incident-{stem}.{extension}"
 
 
 def create_app(
@@ -158,8 +166,14 @@ def create_app(
         return run_investigation(alert, tool_events, retriever, llm) | {"alert_source": source}
 
     @app.post("/reports", response_class=PlainTextResponse)
-    def report(request: ReportRequest) -> PlainTextResponse:
-        markdown = render_report(request.alert, Investigation(verdict=request.verdict), retriever=retriever)
+    def report(request: ReportRequest, format: Literal["markdown", "pdf"] = "markdown") -> Response:
+        """Render an alert and verdict as a Markdown (default) or PDF report."""
+        investigation = Investigation(verdict=request.verdict)
+        if format == "pdf":
+            pdf = render_report_pdf(request.alert, investigation, retriever=retriever)
+            disposition = f'attachment; filename="{report_filename(request.alert, "pdf")}"'
+            return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": disposition})
+        markdown = render_report(request.alert, investigation, retriever=retriever)
         return PlainTextResponse(markdown, media_type="text/markdown")
 
     return app

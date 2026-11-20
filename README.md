@@ -384,7 +384,8 @@ What this does and does not show:
 **API** (`make api`): `GET /health`, `GET /alerts` (sanitized host-event feed,
 each alert flagged if it looks like an injection), `GET /detections` (flows
 flagged by the Phase 2 detector), `GET /kb/search`, `POST /investigate`
-(verdict, tool trace and Markdown report) and `POST /reports`.
+(verdict, tool trace, token usage and Markdown report) and `POST /reports`
+(Markdown, or PDF with `?format=pdf`).
 
 **Flow detections.** At startup the saved detector scores a whole day of
 normalized flows (default: the port-scan afternoon; `SENTINEL_DEMO_FLOWS_PATH`

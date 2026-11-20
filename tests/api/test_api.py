@@ -92,6 +92,18 @@ def test_report_endpoint_renders_markdown_and_rejects_bad_verdicts(client: TestC
     assert bad.status_code == 422
 
 
+def test_report_endpoint_renders_pdf_with_a_safe_filename(client: TestClient) -> None:
+    verdict = {"is_malicious": True, "confidence": 0.8, "attack_techniques": ["T1046"], "evidence": ["many ports"]}
+    alert = {"event_id": 'a-1"; evil=..\\/x\r\nSet-Cookie: y'}
+    response = client.post("/reports", params={"format": "pdf"}, json={"alert": alert, "verdict": verdict})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
+    assert response.headers["content-disposition"] == 'attachment; filename="incident-a-1_evil_.._x_Set-Cookie_y.pdf"'
+    bad = client.post("/reports", params={"format": "docx"}, json={"alert": {}, "verdict": verdict})
+    assert bad.status_code == 422
+
+
 def test_investigate_returns_verdict_trace_and_report(client: TestClient) -> None:
     alert = {"event_id": "a-2", "process": "x.exe", "target_image": "C:\\Windows\\System32\\lsass.exe"}
     body = client.post("/investigate", json={"alert": alert}).json()
@@ -99,6 +111,7 @@ def test_investigate_returns_verdict_trace_and_report(client: TestClient) -> Non
     assert body["verdict"]["is_malicious"] is True
     assert body["verdict"]["recommended_actions"][0]["requires_human_approval"] is True
     assert body["trace"]
+    assert body["usage"] == {"input_tokens": 0, "output_tokens": 0}  # the offline analyst makes no model calls
     assert body["report_markdown"].startswith("# Incident report - a-2")
     assert client.post("/investigate", json={"alert": alert, "tool": "x"}).status_code == 422
 
