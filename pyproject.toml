@@ -25,6 +25,7 @@ dependencies = [
     "sentence-transformers>=3",
     "streamlit>=1.38",
     "torch>=2.3",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]

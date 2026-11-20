@@ -3096,6 +3096,7 @@ dependencies = [
     { name = "sentence-transformers" },
     { name = "streamlit" },
     { name = "torch" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -3130,6 +3131,7 @@ requires-dist = [
     { name = "sentence-transformers", specifier = ">=3" },
     { name = "streamlit", specifier = ">=1.38" },
     { name = "torch", specifier = ">=2.3" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["llm"]
 
