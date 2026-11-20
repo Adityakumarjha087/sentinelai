@@ -19,7 +19,7 @@ the analyst.
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | Planned |
-| 8 | Dashboard + API | Planned |
+| 8 | Dashboard + API | **Minimal read-only API**; no dashboard, no `/investigate` endpoint |
 | 9 | Docker, CI, final documentation | CI added; Docker not built |
 
 ## Layout
@@ -53,7 +53,7 @@ sentinelai/
 ├── agent/           Phase 4 - investigation agent and tools
 ├── guardrails/      Phase 5 - prompt-injection defences
 ├── eval/            Phase 7 - evaluation harness
-├── api/             Phase 8 - FastAPI backend
+├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
 ├── ui/              Phase 8 - dashboard
 └── tests/           pytest suite, mirrors the package layout
 ```
@@ -242,8 +242,9 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- Phase 7 (evaluation harness) and Phase 8 (dashboard/API) are not started;
-  PDF reports and Docker are not built.
+- Phase 7 (evaluation harness) and the dashboard are not started; the API is
+  read-only (`/health`, `/alerts`, `/kb/search`, `/reports`) with no
+  `/investigate` endpoint; PDF reports and Docker are not built.
 
 ## Phase 6 - incident reports
 
