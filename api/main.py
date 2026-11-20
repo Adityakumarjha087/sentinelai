@@ -1,7 +1,9 @@
-"""Minimal read-only API over the event store, knowledge base and report renderer.
+"""Read-only API over the event store, flow detections, knowledge base and reports.
 
 ``/investigate`` uses whichever analyst the app was created with. Without a
 configured LLM that is the offline rule-based baseline, and responses say so.
+The knowledge base and flow detector are optional; ``/health`` says which are
+loaded and why any are not.
 """
 
 from __future__ import annotations
@@ -18,6 +20,8 @@ from agent.llm import LLMClient
 from agent.report import render_report
 from agent.tools import ToolBox
 from agent.verdict import Verdict
+from api.resources import Resources, load_resources
+from detection.service import GROUND_TRUTH, DetectionFeed, flow_alert
 from eval.analysts import RuleBasedAnalyst
 from guardrails.injection import detect_injection
 from guardrails.sanitize import sanitize_text
@@ -48,18 +52,28 @@ def alert_from_row(row: pd.Series) -> dict[str, str]:
     return {str(key): sanitize_text(value, 600) for key, value in row.items() if key != "raw" and not pd.isna(value)}
 
 
-def resolve_alert(alert: dict[str, Any], events: pd.DataFrame) -> tuple[dict[str, Any], str]:
-    """Swap a client's copy of a known event for the stored record.
+def resolve_alert(
+    alert: dict[str, Any], events: pd.DataFrame, feed: DetectionFeed | None = None
+) -> tuple[dict[str, Any], str]:
+    """Swap a client's copy of a known event or detection for the stored record.
 
-    The feed shows only a few fields per event, so a client posting an alert back
+    The feeds show only a few fields per event, so a client posting an alert back
     may have dropped the very field that carries an injection payload. The stored
-    record is the evidence; a client cannot trim or rewrite it.
+    record is the evidence; a client cannot trim or rewrite it. For detections the
+    stored record is rebuilt with :func:`flow_alert`, which never includes the
+    ground-truth label a client may have copied from ``/detections``.
     """
     event_id = alert.get("event_id")
-    if isinstance(event_id, str) and "event_id" in events:
+    if not isinstance(event_id, str):
+        return alert, "request"
+    if "event_id" in events:
         match = events[events["event_id"] == event_id]
         if len(match):
             return alert_from_row(match.iloc[0]), "stored_event"
+    if feed is not None:
+        match = feed.detections[feed.detections["event_id"] == event_id]
+        if len(match):
+            return flow_alert(match.iloc[0]), "stored_detection"
     return alert, "request"
 
 
@@ -77,13 +91,27 @@ def run_investigation(
     }
 
 
-def create_app(events: pd.DataFrame, retriever: HybridRetriever | None = None, llm: LLMClient | None = None) -> FastAPI:
-    """Build the API around an event table, an optional knowledge base and an analyst."""
+def create_app(
+    events: pd.DataFrame,
+    retriever: HybridRetriever | None = None,
+    llm: LLMClient | None = None,
+    *,
+    feed: DetectionFeed | None = None,
+    unavailable: dict[str, str] | None = None,
+) -> FastAPI:
+    """Build the API around host events, optional flow detections and knowledge base, and an analyst."""
     app = FastAPI(title="SentinelAI", version="0.1.0")
+    tool_events = Resources(events, retriever, feed).investigation_events()
 
     @app.get("/health")
     def health() -> dict[str, Any]:
-        return {"status": "ok", "events": len(events), "knowledge_base": retriever is not None}
+        return {
+            "status": "ok",
+            "events": len(events),
+            "knowledge_base": retriever is not None,
+            "detector": feed.summary if feed is not None else None,
+            "unavailable": unavailable or {},
+        }
 
     @app.get("/alerts")
     def alerts(limit: int = Query(default=50, ge=1, le=500)) -> list[dict[str, Any]]:
@@ -99,6 +127,18 @@ def create_app(events: pd.DataFrame, retriever: HybridRetriever | None = None, l
             out.append(item)
         return out
 
+    @app.get("/detections")
+    def detections(limit: int = Query(default=50, ge=1, le=500)) -> dict[str, Any]:
+        """Most recent flagged flows. ``ground_truth`` is the dataset label, shown to people, never to the analyst."""
+        if feed is None:
+            raise HTTPException(status_code=503, detail="flow detector not loaded")
+        recent = feed.detections.iloc[::-1].head(limit)
+        alerts = [
+            flow_alert(row) | {GROUND_TRUTH: None if pd.isna(row.get(GROUND_TRUTH)) else str(row[GROUND_TRUTH])}
+            for _, row in recent.iterrows()
+        ]
+        return {"summary": feed.summary, "alerts": alerts}
+
     @app.get("/kb/search")
     def kb_search(q: str = Query(min_length=2, max_length=300), top_k: int = Query(default=5, ge=1, le=20)) -> Any:
         if retriever is None:
@@ -110,8 +150,8 @@ def create_app(events: pd.DataFrame, retriever: HybridRetriever | None = None, l
 
     @app.post("/investigate")
     def investigate_alert(request: InvestigateRequest) -> dict[str, Any]:
-        alert, source = resolve_alert(request.alert, events)
-        return run_investigation(alert, events, retriever, llm) | {"alert_source": source}
+        alert, source = resolve_alert(request.alert, events, feed)
+        return run_investigation(alert, tool_events, retriever, llm) | {"alert_source": source}
 
     @app.post("/reports", response_class=PlainTextResponse)
     def report(request: ReportRequest) -> PlainTextResponse:
@@ -122,10 +162,6 @@ def create_app(events: pd.DataFrame, retriever: HybridRetriever | None = None, l
 
 
 def default_app() -> FastAPI:
-    """App over the bundled synthetic Sysmon sample (``uvicorn --factory api.main:default_app``)."""
-    from common.settings import get_settings
-    from data.parsers.sysmon import parse_sysmon_file
-    from data.schema import events_to_frame
-
-    samples = sorted(get_settings().samples_dir.glob("*.xml"))
-    return create_app(events_to_frame([event for path in samples for event in parse_sysmon_file(path)]))
+    """App over the Sysmon sample plus whatever is built (``uvicorn --factory api.main:default_app``)."""
+    resources = load_resources()
+    return create_app(resources.events, resources.retriever, feed=resources.feed, unavailable=resources.unavailable)

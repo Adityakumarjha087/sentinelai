@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from api import resources as resources_module
 from api.main import create_app
+from api.resources import Resources, load_resources
+from common.settings import get_settings
 from data.parsers.sysmon import parse_sysmon_file
 from data.schema import events_to_frame
+from detection.service import DetectionFeed, FlowDetector, build_feed, read_flows
 from rag.documents import KBDocument, chunk_document
 from rag.embeddings import HashingEmbedder
 from rag.retriever import HybridRetriever
+from tests.conftest import FlowArtifacts
 
 
 @pytest.fixture(scope="module")
@@ -25,8 +31,31 @@ def client(sysmon_sample: Path, tmp_path_factory: pytest.TempPathFactory) -> Tes
     return TestClient(create_app(events_to_frame(parse_sysmon_file(sysmon_sample)), retriever))
 
 
+@pytest.fixture(scope="module")
+def feed(flow_artifacts: FlowArtifacts) -> DetectionFeed:
+    detector = FlowDetector.load(flow_artifacts.model_dir, flow_artifacts.featurizer_path)
+    return build_feed(detector, read_flows(flow_artifacts.flows_path), source="flows.parquet", max_alerts=40)
+
+
+@pytest.fixture(scope="module")
+def flow_client(sysmon_sample: Path, feed: DetectionFeed) -> TestClient:
+    return TestClient(create_app(events_to_frame(parse_sysmon_file(sysmon_sample)), feed=feed))
+
+
+@pytest.fixture
+def artifact_env(flow_artifacts: FlowArtifacts, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    monkeypatch.setenv("SENTINEL_DETECTOR_DIR", str(flow_artifacts.model_dir))
+    monkeypatch.setenv("SENTINEL_FEATURIZER_PATH", str(flow_artifacts.featurizer_path))
+    monkeypatch.setenv("SENTINEL_DEMO_FLOWS_PATH", str(flow_artifacts.flows_path))
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 def test_health(client: TestClient) -> None:
-    assert client.get("/health").json() == {"status": "ok", "events": 13, "knowledge_base": True}
+    assert client.get("/health").json() == {
+        "status": "ok", "events": 13, "knowledge_base": True, "detector": None, "unavailable": {}
+    }  # fmt: skip
 
 
 def test_alerts_are_recent_first_and_flag_injection(client: TestClient) -> None:
@@ -114,4 +143,75 @@ def test_unknown_event_ids_are_investigated_as_sent(client: TestClient) -> None:
 def test_default_app_serves_the_bundled_sample() -> None:
     from api.main import default_app
 
-    assert TestClient(default_app()).get("/health").json()["events"] == 13
+    health = TestClient(default_app()).get("/health").json()
+    assert health["events"] == 13
+    assert health["knowledge_base"] is False
+    assert health["detector"] is None
+    assert "make kb" in health["unavailable"]["knowledge_base"]
+    assert "make data train" in health["unavailable"]["detector"]
+
+
+def test_detections_without_a_detector(client: TestClient) -> None:
+    assert client.get("/detections").status_code == 503
+
+
+def test_detections_are_recent_first_and_labelled_for_people(flow_client: TestClient, feed: DetectionFeed) -> None:
+    body = flow_client.get("/detections", params={"limit": 5}).json()
+    assert body["summary"] == feed.summary
+    stamps = [alert["timestamp"] for alert in body["alerts"]]
+    assert len(stamps) == 5
+    assert stamps == sorted(stamps, reverse=True)
+    assert all(alert["ground_truth"] in {"BENIGN", "PortScan", "DDoS"} for alert in body["alerts"])
+    assert flow_client.get("/health").json()["detector"]["flows_flagged"] == feed.summary["flows_flagged"]
+
+
+def test_ground_truth_posted_back_never_reaches_the_analyst(flow_client: TestClient) -> None:
+    alerts = flow_client.get("/detections", params={"limit": 40}).json()["alerts"]
+    scan = next(alert for alert in alerts if alert["ground_truth"] == "PortScan")
+    body = flow_client.post("/investigate", json={"alert": scan}).json()
+    assert body["alert_source"] == "stored_detection"
+    assert "ground_truth" not in body["report_markdown"]
+    assert "PortScan" not in body["report_markdown"]
+    assert body["verdict"]["attack_techniques"] == ["T1046"]
+
+
+def test_flow_investigations_can_see_related_detections(feed: DetectionFeed) -> None:
+    events = Resources(events_to_frame([]), feed=feed).investigation_events()
+    assert len(events) == len(feed.detections)
+    assert "ground_truth" not in events.columns
+
+
+@pytest.mark.usefixtures("artifact_env")
+def test_default_app_loads_a_built_detector() -> None:
+    from api.main import default_app
+
+    health = TestClient(default_app()).get("/health").json()
+    assert health["detector"]["detector"] == "isolation_forest"
+    assert health["detector"]["source"] == "flows.parquet"
+    assert "detector" not in health["unavailable"]
+
+
+@pytest.mark.usefixtures("artifact_env")
+def test_a_broken_artifact_is_reported_not_fatal(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "metadata.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setenv("SENTINEL_DETECTOR_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    loaded = load_resources()
+    assert loaded.feed is None
+    assert loaded.unavailable["detector"] == "failed to load: JSONDecodeError"
+
+
+def test_knowledge_base_is_loaded_when_built(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "documents.jsonl").write_text("", encoding="utf-8")
+    monkeypatch.setenv("SENTINEL_KB_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    sentinel = object()
+    monkeypatch.setattr(resources_module, "load_knowledge_base", lambda settings: sentinel)
+    assert load_resources().retriever is sentinel
+
+    def broken(settings: object) -> None:
+        raise OSError("disk")
+
+    monkeypatch.setattr(resources_module, "load_knowledge_base", broken)
+    assert load_resources().unavailable["knowledge_base"] == "failed to load: OSError"
+    get_settings.cache_clear()
