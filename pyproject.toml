@@ -40,6 +40,9 @@ sentinel-eval = "eval.harness:main"
 llm = ["anthropic>=0.40"]
 
 [dependency-groups]
+demo = [
+    "playwright>=1.45",
+]
 dev = [
     "mypy>=1.10",
     "pandas-stubs>=2.2",
@@ -82,7 +85,7 @@ exclude = ["^\\.venv/", "^build/"]
 [[tool.mypy.overrides]]
 module = [
     "defusedxml.*", "pyarrow.*", "sklearn.*", "joblib.*", "mlflow.*", "rank_bm25.*", "sentence_transformers.*",
-    "fontTools.*",
+    "fontTools.*", "playwright.*",
 ]
 ignore_missing_imports = true
 

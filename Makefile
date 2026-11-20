@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui smoke
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui smoke demo-gif
 
 install:
 	uv sync
@@ -55,3 +55,10 @@ ui:
 # Check a running deployment (e.g. after `docker compose up`); stdlib only.
 smoke:
 	python3 scripts/smoke_test.py
+
+# Re-record docs/demo.gif from a running dashboard (needs `docker compose up` with
+# the artifacts built). Uses Playwright's Chromium: run
+# `uv run --group demo playwright install chromium` once, or pass
+# DEMO_ARGS="--channel chrome" to use an installed Google Chrome.
+demo-gif:
+	uv run --group demo python scripts/record_demo.py $(DEMO_ARGS)
