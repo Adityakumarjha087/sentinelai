@@ -12,11 +12,14 @@ the model flags that day are attacks.
 
 Ground-truth labels are kept in the detections table so the dashboard can show
 how the detector did, but they never reach the analyst: :func:`flow_alert`
-builds what the analyst sees, and it has no label in it.
+builds what the analyst sees, and it has no label in it. Nor does it carry the
+dataset's event id, which embeds the capture file's name ("...-portscan-0275500")
+and so leaks the label too; alerts get an opaque id instead.
 """
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -42,6 +45,13 @@ FLOW_COLUMNS: tuple[str, ...] = (
     "total_backward_packets",
 )
 GROUND_TRUTH = "ground_truth"
+SOURCE_EVENT_ID = "source_event_id"
+PEOPLE_ONLY: tuple[str, ...] = (GROUND_TRUTH, SOURCE_EVENT_ID)
+
+
+def opaque_alert_id(event_id: str) -> str:
+    """A stable id that says nothing about where the flow came from."""
+    return "flow-" + hashlib.blake2b(event_id.encode(), digest_size=8).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -111,6 +121,8 @@ def build_feed(
     detections = sample.drop(columns=["is_anomalous", "is_attack"], errors="ignore").assign(
         detector=detector.name, threshold=detector.model.threshold
     )
+    detections = detections.rename(columns={"event_id": SOURCE_EVENT_ID})
+    detections.insert(0, "event_id", [opaque_alert_id(str(e)) for e in detections[SOURCE_EVENT_ID]])
     return DetectionFeed(detections=detections.reset_index(drop=True), summary=summary)
 
 
@@ -125,7 +137,7 @@ def describe_behaviour(row: pd.Series) -> str:
 
 
 def flow_alert(row: pd.Series) -> dict[str, Any]:
-    """What the analyst sees for one detection. Deliberately has no ground-truth label."""
+    """What the analyst sees for one detection: no ground-truth label, no dataset event id."""
     alert: dict[str, Any] = {
         column: sanitize_text(row[column], 100) for column in FLOW_COLUMNS if column in row and not pd.isna(row[column])
     }

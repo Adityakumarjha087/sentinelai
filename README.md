@@ -378,7 +378,10 @@ behaviour ("in the same minute the source opened 4010 flows to 999 distinct
 destination ports..."). The dataset label is returned as `ground_truth` for
 people to judge the detector by. It is never part of what the analyst sees,
 and `/investigate` rebuilds a posted detection from the stored record, so a
-copied label is dropped.
+copied label is dropped. The dataset's own event ids embed the capture file
+name (`...-afternoon-portscan-0275500`), which would leak the label as well,
+so alerts carry an opaque `flow-...` id; the original is returned as
+`source_event_id`, for people only.
 
 Measured with the saved autoencoder on the port-scan afternoon: 286,467 flows
 scored and 162,678 flagged; 97.7% of the flagged flows are attacks by the
@@ -415,6 +418,10 @@ when they are not. Investigations use the offline rule-based analyst
   agent; the ML detector currently covers network flows only.
 - The synthetic flow generator exists for tests and demos and must not be used
   to report detection metrics.
+- Flow alerts show addresses and times, and CICIDS2017's attacker address
+  (172.16.0.1) and attack schedule are widely published. A language model may
+  recognise them, so an LLM analyst evaluated on this data would look better
+  than it would on unfamiliar traffic.
 
 ## Dataset citation
 

@@ -21,7 +21,7 @@ from agent.report import render_report
 from agent.tools import ToolBox
 from agent.verdict import Verdict
 from api.resources import Resources, load_resources
-from detection.service import GROUND_TRUTH, DetectionFeed, flow_alert
+from detection.service import PEOPLE_ONLY, DetectionFeed, flow_alert
 from eval.analysts import RuleBasedAnalyst
 from guardrails.injection import detect_injection
 from guardrails.sanitize import sanitize_text
@@ -129,12 +129,16 @@ def create_app(
 
     @app.get("/detections")
     def detections(limit: int = Query(default=50, ge=1, le=500)) -> dict[str, Any]:
-        """Most recent flagged flows. ``ground_truth`` is the dataset label, shown to people, never to the analyst."""
+        """Most recent flagged flows.
+
+        ``ground_truth`` (the dataset label) and ``source_event_id`` (the dataset's id,
+        which names the capture file) are for people; the analyst never sees either.
+        """
         if feed is None:
             raise HTTPException(status_code=503, detail="flow detector not loaded")
         recent = feed.detections.iloc[::-1].head(limit)
         alerts = [
-            flow_alert(row) | {GROUND_TRUTH: None if pd.isna(row.get(GROUND_TRUTH)) else str(row[GROUND_TRUTH])}
+            flow_alert(row) | {key: None if pd.isna(row.get(key)) else str(row[key]) for key in PEOPLE_ONLY}
             for _, row in recent.iterrows()
         ]
         return {"summary": feed.summary, "alerts": alerts}

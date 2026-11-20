@@ -16,7 +16,7 @@ import pandas as pd
 from common.settings import Settings, get_settings
 from data.parsers.sysmon import parse_sysmon_file
 from data.schema import events_to_frame
-from detection.service import GROUND_TRUTH, DetectionFeed, FlowDetector, build_feed, read_flows
+from detection.service import PEOPLE_ONLY, DetectionFeed, FlowDetector, build_feed, read_flows
 from rag.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
@@ -32,10 +32,10 @@ class Resources:
     unavailable: dict[str, str] = field(default_factory=dict)
 
     def investigation_events(self) -> pd.DataFrame:
-        """Host events plus flagged flows, for the log tools. Ground truth is left out."""
+        """Host events plus flagged flows, for the log tools. Labels and dataset ids are left out."""
         if self.feed is None:
             return self.events
-        flows = self.feed.detections.drop(columns=[GROUND_TRUTH], errors="ignore")
+        flows = self.feed.detections.drop(columns=list(PEOPLE_ONLY), errors="ignore")
         return pd.concat([self.events, flows], ignore_index=True)
 
 

@@ -8,7 +8,16 @@ import pytest
 from agent.investigator import investigate
 from agent.tools import ToolBox
 from data.features import FlowFeaturizer
-from detection.service import GROUND_TRUTH, FlowDetector, build_feed, describe_behaviour, flow_alert, read_flows
+from detection.service import (
+    GROUND_TRUTH,
+    SOURCE_EVENT_ID,
+    FlowDetector,
+    build_feed,
+    describe_behaviour,
+    flow_alert,
+    opaque_alert_id,
+    read_flows,
+)
 from eval.analysts import RuleBasedAnalyst
 from tests.conftest import FlowArtifacts
 
@@ -88,3 +97,16 @@ def test_read_flows_skips_the_raw_column(flow_artifacts: FlowArtifacts) -> None:
     frame = read_flows(flow_artifacts.flows_path)
     assert "raw" not in frame.columns
     assert "src_ip" in frame.columns
+
+
+def test_flow_alerts_hide_the_dataset_event_id_that_names_the_capture_file(
+    detector: FlowDetector, flows: pd.DataFrame
+) -> None:
+    detections = build_feed(detector, flows, source="x").detections
+    row = detections.iloc[0]
+    assert row[SOURCE_EVENT_ID].startswith("cic17-synthetic-")  # real ids embed e.g. "...-portscan-0275500"
+    alert = flow_alert(row)
+    assert alert["event_id"] == opaque_alert_id(row[SOURCE_EVENT_ID])
+    assert alert["event_id"].startswith("flow-")
+    assert row[SOURCE_EVENT_ID] not in json.dumps(alert)
+    assert detections["event_id"].is_unique

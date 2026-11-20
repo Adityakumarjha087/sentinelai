@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -162,6 +163,8 @@ def test_detections_are_recent_first_and_labelled_for_people(flow_client: TestCl
     assert len(stamps) == 5
     assert stamps == sorted(stamps, reverse=True)
     assert all(alert["ground_truth"] in {"BENIGN", "PortScan", "DDoS"} for alert in body["alerts"])
+    assert all(alert["event_id"].startswith("flow-") for alert in body["alerts"])
+    assert all(alert["source_event_id"].startswith("cic17-") for alert in body["alerts"])
     assert flow_client.get("/health").json()["detector"]["flows_flagged"] == feed.summary["flows_flagged"]
 
 
@@ -171,6 +174,7 @@ def test_ground_truth_posted_back_never_reaches_the_analyst(flow_client: TestCli
     body = flow_client.post("/investigate", json={"alert": scan}).json()
     assert body["alert_source"] == "stored_detection"
     assert "ground_truth" not in body["report_markdown"]
+    assert scan["source_event_id"] not in json.dumps(body)
     assert "PortScan" not in body["report_markdown"]
     assert body["verdict"]["attack_techniques"] == ["T1046"]
 
@@ -178,7 +182,7 @@ def test_ground_truth_posted_back_never_reaches_the_analyst(flow_client: TestCli
 def test_flow_investigations_can_see_related_detections(feed: DetectionFeed) -> None:
     events = Resources(events_to_frame([]), feed=feed).investigation_events()
     assert len(events) == len(feed.detections)
-    assert "ground_truth" not in events.columns
+    assert {"ground_truth", "source_event_id"}.isdisjoint(events.columns)
 
 
 @pytest.mark.usefixtures("artifact_env")
