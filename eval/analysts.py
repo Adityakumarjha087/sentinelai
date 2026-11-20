@@ -18,7 +18,8 @@ _RULES: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"lsass", re.I), "T1003.001", "a process opened lsass.exe memory"),
     (re.compile(r"currentversion\\+run", re.I), "T1547.001", "a Run key was set for persistence"),
     (re.compile(r"schtasks.*/create", re.I), "T1053.005", "a scheduled task was created"),
-    (re.compile(r"distinct destination ports", re.I), "T1046", "one source contacted many ports"),
+    # Flow alerts state the port count for every flow, so only a high count is a scan.
+    (re.compile(r"\b(?:[2-9]\d|\d{3,}) distinct destination ports", re.I), "T1046", "one source contacted many ports"),
     (re.compile(r"failed logins", re.I), "T1110", "repeated failed logins from one source"),
     (re.compile(r"requests per minute", re.I), "T1498", "request flood against one server"),
 ]
