@@ -21,7 +21,7 @@ the analyst.
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
 | 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | **Harness done**; run only with offline baselines, not a real LLM |
-| 8 | Dashboard + API | **Done on sample data** with the offline analyst; not yet wired to a real LLM or the flow detector |
+| 8 | Dashboard + API | **Done**: host events and Phase 2 flow detections, investigated with the knowledge base; offline analyst only (no LLM run yet) |
 | 9 | Docker, CI, final documentation | CI passing; `docker compose up` verified locally (API + dashboard); no demo GIF |
 
 ## Architecture
@@ -49,9 +49,11 @@ flowchart LR
     POL --> EVAL["7 - Evaluation harness"]
 ```
 
-Shown in the diagram but not yet wired together in code: alerts from the Phase 2 detector are
-not yet fed to the agent automatically, and the API/dashboard run on the sample
-Sysmon data with the offline analyst.
+Everything in the diagram is wired together except a real LLM: the API and
+dashboard score a CICIDS2017 day with the saved detector and investigate the
+flagged flows (and the Sysmon sample) against the knowledge base, using the
+offline rule-based analyst until an LLM is configured. Scoring is a batch over
+one day's file, not a live stream.
 
 ## Layout
 
@@ -75,7 +77,8 @@ sentinelai/
 │   ├── dataset.py       benign-only train split, stratified validation/test
 │   ├── models.py        Isolation Forest and autoencoder behind one interface
 │   ├── metrics.py       threshold selection, precision/recall/F1/AUC
-│   └── train.py         `sentinel-detect`: train, compare, track, save best
+│   ├── train.py         `sentinel-detect`: train, compare, track, save best
+│   └── service.py       score a day of flows, sample the flagged ones into a feed
 ├── rag/             Phase 3 - ATT&CK / CVE knowledge base
 │   ├── documents.py     STIX and NVD parsing, chunking
 │   ├── embeddings.py    sentence-transformers and offline hashing embedders
@@ -85,6 +88,7 @@ sentinelai/
 ├── guardrails/      Phase 5 - prompt-injection defences
 ├── eval/            Phase 7 - evaluation harness (`sentinel-eval`)
 ├── api/             Phase 8 - FastAPI backend (`api.main.create_app`)
+│   └── resources.py     loads the sample, knowledge base and detector when built
 ├── ui/              Phase 8 - Streamlit dashboard (`ui/app.py`)
 └── tests/           pytest suite, mirrors the package layout
 ```
@@ -114,12 +118,19 @@ docker compose up --build
 # Dashboard  http://localhost:8501
 ```
 
+Built artifacts are mounted read-only when they exist: `models/` (`make train`)
+and `data/processed/` (`make data`, `make kb`). Without them both services
+start on the Sysmon sample alone, and `/health` lists what is missing and the
+command that builds it. The embedding and reranking models are baked into the
+image, so containers need no network at run time. Chroma cannot open a
+read-only index, so the loader opens a private temporary copy of it.
+
 Verified on Docker 29.7 / Compose v5.5 (Apple silicon, so a `linux/arm64`
-image): the API turns healthy, `/docs` and `/alerts` respond, an injected
-alert investigated through the API is escalated, and the dashboard runs an
-"Investigate all" pass without errors. The image is about 1.2 GB compressed
-(5.6 GB unpacked), mostly PyTorch and the ML stack. The `linux/amd64` image
-has not been built.
+image), with and without the artifacts mounted: the API turns healthy (about
+40 s with the knowledge base and detector), `/detections`, `/kb/search` and
+`/investigate` respond, and the dashboard renders both feeds and investigates
+without errors. The image is about 1.3 GB compressed (6 GB unpacked), mostly
+PyTorch and the ML stack. The `linux/amd64` image has not been built.
 
 One image serves both; the dashboard runs investigations in-process rather
 than calling the API. Containers run as an unprivileged user with all Linux
@@ -350,9 +361,32 @@ What this does and does not show:
 
 ## Phase 8 - API and dashboard
 
-**API** (`make api`): `GET /health`, `GET /alerts` (sanitized feed, each alert
-flagged if it looks like an injection), `GET /kb/search`, `POST /investigate`
+**API** (`make api`): `GET /health`, `GET /alerts` (sanitized host-event feed,
+each alert flagged if it looks like an injection), `GET /detections` (flows
+flagged by the Phase 2 detector), `GET /kb/search`, `POST /investigate`
 (verdict, tool trace and Markdown report) and `POST /reports`.
+
+**Flow detections.** At startup the saved detector scores a whole day of
+normalized flows (default: the port-scan afternoon; `SENTINEL_DEMO_FLOWS_PATH`
+picks another). Whole days, because the behavioural features count what a
+source did in the same minute. The feed is a seeded random sample of the
+flagged flows in time order - the queue an analyst would work - not the
+highest scores: on the DDoS afternoon all 500 top-scoring flows are benign,
+although 79% of everything flagged that day is an attack. Each alert carries
+the flow's identifiers, its score and threshold, and one sentence of
+behaviour ("in the same minute the source opened 4010 flows to 999 distinct
+destination ports..."). The dataset label is returned as `ground_truth` for
+people to judge the detector by. It is never part of what the analyst sees,
+and `/investigate` rebuilds a posted detection from the stored record, so a
+copied label is dropped.
+
+Measured with the saved autoencoder on the port-scan afternoon: 286,467 flows
+scored and 162,678 flagged; 97.7% of the flagged flows are attacks by the
+labels. Of the 500 flows in the feed (489 port scan, 11 benign), the
+rule-based baseline mapped 488 of the 489 scans to T1046 and cleared 10 of
+the 11 benign flows. It has rules for scans only, so flood and brute-force
+detections would come back "not malicious" from it; that gap is the
+baseline's, and is what an LLM analyst is for.
 
 `/investigate` looks up any `event_id` it already stores and investigates the
 stored record, not the client's copy (`alert_source` in the response says
@@ -361,14 +395,14 @@ from it used to omit the command line - which is where the sample's injection
 payload sits - and was closed as benign. A client also cannot trim or rewrite
 the evidence for a stored event this way.
 
-**Dashboard** (`make ui`): alert feed, per-alert investigation with verdict,
-severity, confidence, guardrail warnings and the reasoning trace, a severity
-chart for investigated alerts, and a one-click report download.
+**Dashboard** (`make ui`): a host-events tab and a network-detections tab,
+each with its feed, bulk and single investigation, verdict, severity,
+confidence, guardrail warnings, the reasoning trace, what the analyst was
+shown, a severity chart, and a one-click report download.
 
-Both currently serve the bundled synthetic Sysmon sample and investigate with
-the offline rule-based analyst (responses name the analyst used). They are not
-yet connected to a real LLM, the knowledge base, or the Phase 2 flow detector,
-and the feed is a static sample rather than a live stream.
+Both load the knowledge base and detector when they are built and say plainly
+when they are not. Investigations use the offline rule-based analyst
+(responses name the analyst used); no real LLM has been connected yet.
 
 ## Limitations (so far)
 
