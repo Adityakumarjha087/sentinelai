@@ -64,7 +64,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     settings = get_settings()
-    index_dir = settings.processed_dir / "kb"
+    index_dir = settings.knowledge_base_dir
     if args.command == "build":
         documents = load_documents(*fetch_sources(settings.raw_dir / "kb"))
         chunks = [chunk for document in documents for chunk in chunk_document(document)]
