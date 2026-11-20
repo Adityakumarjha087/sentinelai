@@ -14,7 +14,7 @@ the analyst.
 |---|---|---|
 | 1 | Data pipeline: download, parse, normalize, feature engineering | **Done** |
 | 2 | Detection models (Isolation Forest + PyTorch autoencoder), MLflow | **Done** |
-| 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | Planned |
+| 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | **Done** |
 | 4 | Investigation agent with tools and structured verdicts | Planned |
 | 5 | Guardrails: sanitization, injection classifier, tool allow-list | Planned |
 | 6 | Incident reports (Markdown / PDF) | Planned |
@@ -46,6 +46,10 @@ sentinelai/
 │   ├── metrics.py       threshold selection, precision/recall/F1/AUC
 │   └── train.py         `sentinel-detect`: train, compare, track, save best
 ├── rag/             Phase 3 - ATT&CK / CVE knowledge base
+│   ├── documents.py     STIX and NVD parsing, chunking
+│   ├── embeddings.py    sentence-transformers and offline hashing embedders
+│   ├── retriever.py     BM25 + ChromaDB vectors, RRF fusion, cross-encoder rerank
+│   └── cli.py           `sentinel-kb build` / `sentinel-kb search`
 ├── agent/           Phase 4 - investigation agent and tools
 ├── guardrails/      Phase 5 - prompt-injection defences
 ├── eval/            Phase 7 - evaluation harness
@@ -65,6 +69,7 @@ make demo-data    # offline: synthetic flows through the whole pipeline
 make data         # real CICIDS2017 (~306 MB download, ~2 min processing)
 make train        # train both detectors, log to MLflow, save the best (~1 min)
 make mlflow-ui    # browse the tracked runs
+make kb           # download ATT&CK + known-exploited CVEs and build the index
 ```
 
 Configuration lives in environment variables (see `.env.example`); copy it to
@@ -178,6 +183,31 @@ validation F1 is saved to `models/<dataset>/best/` with its threshold, feature
 order and file checksums; `detection.train.load_model` refuses files whose
 checksum changed. The autoencoder is loaded with `weights_only=True`; the
 Isolation Forest uses joblib (pickle), so only load model files you produced.
+
+## Phase 3 - knowledge base (RAG)
+
+`sentinel-kb build` indexes **706 ATT&CK techniques** (Enterprise v20.1, pinned
+commit, SHA-256 verified) and **1,786 CVEs** - the NVD entries listed in CISA's
+Known Exploited Vulnerabilities catalog - as 2,971 passages. Retrieval is hybrid:
+
+1. **BM25** with a tokenizer that keeps `T1059.001`, `CVE-2021-44228` and
+   `lsass.exe` whole, for exact identifiers and rare terms;
+2. **dense vectors** (`all-MiniLM-L6-v2` in ChromaDB) for paraphrases;
+3. **reciprocal rank fusion** of the two rankings;
+4. a **cross-encoder reranker** (`ms-marco-MiniLM-L-6-v2`) over the shortlist.
+
+A quick sanity check on 10 analyst-style queries (hand-written, so indicative
+only - the real retrieval evaluation belongs to Phase 7):
+
+| mode | correct at rank 1 | correct in top 5 |
+|---|---|---|
+| BM25 only | 6/10 | 9/10 |
+| vectors only | 6/10 | 8/10 |
+| hybrid (RRF) | 4/10 | 8/10 |
+| hybrid + rerank | **9/10** | **10/10** |
+
+Fusion alone did not beat either single retriever on this small set; the
+reranker is what makes the hybrid pipeline worthwhile.
 
 ## Limitations (so far)
 
