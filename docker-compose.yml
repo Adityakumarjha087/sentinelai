@@ -1,12 +1,21 @@
 # docker compose up --build
 #   API        http://localhost:8000/docs
 #   Dashboard  http://localhost:8501
+#
+# Built artifacts are mounted read-only when present: models/ (make train) and
+# data/processed/ (make data, make kb). Without them both services still start
+# on the Sysmon sample and /health says what is missing.
+x-artifacts: &artifacts
+  - ./models:/app/models:ro
+  - ./data/processed:/app/data/processed:ro
+
 services:
   api:
     build: .
     image: sentinelai:latest
     ports:
       - "127.0.0.1:8000:8000"
+    volumes: *artifacts
     env_file:
       - path: .env
         required: false
@@ -20,6 +29,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+      start_period: 120s
 
   # The dashboard runs investigations in-process; it does not call the API.
   ui:
@@ -28,6 +38,7 @@ services:
     command: ["streamlit", "run", "ui/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true", "--browser.gatherUsageStats", "false"]
     ports:
       - "127.0.0.1:8501:8501"
+    volumes: *artifacts
     env_file:
       - path: .env
         required: false
