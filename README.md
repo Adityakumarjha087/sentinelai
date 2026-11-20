@@ -17,10 +17,10 @@ the analyst.
 | 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | **Done** |
 | 4 | Investigation agent with tools and structured verdicts | **Built; not yet run against a live LLM** |
 | 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
-| 6 | Incident reports (Markdown / PDF) | Planned |
+| 6 | Incident reports (Markdown / PDF) | **Markdown done**; PDF not built |
 | 7 | Evaluation harness | Planned |
 | 8 | Dashboard + API | Planned |
-| 9 | Docker, CI, final documentation | Planned |
+| 9 | Docker, CI, final documentation | CI added; Docker not built |
 
 ## Layout
 
@@ -242,8 +242,17 @@ the injected text; the guardrails hold in every such case.
 - The injection detector is a set of regular expressions, not the fine-tuned
   DistilBERT classifier from the plan. It will miss paraphrased attacks.
 - No LangGraph; the loop is hand-written.
-- Phases 6-9 (reports, evaluation harness, dashboard/API, Docker/CI) are not
-  started.
+- Phase 7 (evaluation harness) and Phase 8 (dashboard/API) are not started;
+  PDF reports and Docker are not built.
+
+## Phase 6 - incident reports
+
+`agent.report.render_report` turns an investigation into a Markdown report:
+summary, event timeline, ATT&CK mapping with links, evidence, remediation
+checklist (response actions marked as needing human approval, plus ATT&CK
+mitigations for the mapped techniques), guardrail notes and the tool trace.
+Log-derived text is sanitized and Markdown-escaped, so hostile log content
+cannot inject headings, HTML or links into the report.
 
 ## Limitations (so far)
 
