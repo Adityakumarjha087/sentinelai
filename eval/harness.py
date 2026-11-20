@@ -132,13 +132,35 @@ def results_table(summaries: dict[str, dict[str, float]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _configure_injection_detector(mode: str) -> str:
+    """Register the classifier for ``auto`` when it is built; say what is in use."""
+    from common.settings import get_settings
+    from guardrails.injection import use_classifier
+
+    use_classifier(None)
+    directory = get_settings().injection_classifier_dir
+    if mode == "auto" and (directory / "metadata.json").exists():
+        from guardrails.classifier import InjectionClassifier
+
+        use_classifier(InjectionClassifier.load(directory))
+        return "patterns + fine-tuned DistilBERT"
+    return "patterns only"
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the evaluation CLI; returns a process exit code."""
     parser = argparse.ArgumentParser(prog="sentinel-eval", description=__doc__)
     parser.add_argument("--analyst", choices=("rule", "gullible", "anthropic"), nargs="+", default=["rule", "gullible"])
     parser.add_argument("--usd-per-mtok-in", type=float, default=0.0, help="input price per million tokens")
     parser.add_argument("--usd-per-mtok-out", type=float, default=0.0, help="output price per million tokens")
+    parser.add_argument(
+        "--injection-detector",
+        choices=("auto", "patterns"),
+        default="auto",
+        help="auto: add the fine-tuned classifier when it is built (sentinel-guard train)",
+    )
     args = parser.parse_args(argv)
+    print(f"injection detection: {_configure_injection_detector(args.injection_detector)}\n")
 
     cases = build_cases()
     summaries: dict[str, dict[str, float]] = {}

@@ -84,7 +84,7 @@ def test_guardrails_reduce_the_damage_of_a_hijacked_model() -> None:
 def test_cli_prints_a_results_table(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--analyst", "rule"]) == 0
     output = capsys.readouterr().out
-    assert output.startswith("| metric | rule |")
+    assert output.startswith("injection detection: patterns only\n\n| metric | rule |")  # no classifier built in tests
     assert "| alerts | 126 |" in output
     assert results_table({"a": {"alerts": 3.0, "detection_f1": 0.5}}).splitlines()[2:] == [
         "| alerts | 3 |",

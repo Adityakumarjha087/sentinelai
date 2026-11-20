@@ -17,6 +17,7 @@ from data.parsers.cicids import parse_cicids_file
 from data.synthetic import SYNTHETIC_FILE_NAME, generate_cicids_like_csv
 from detection.models import IsolationForestDetector
 from detection.train import RunResult, save_model
+from guardrails.injection import use_classifier
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OPTIONAL_ARTIFACTS = (
@@ -24,6 +25,7 @@ OPTIONAL_ARTIFACTS = (
     "SENTINEL_DETECTOR_DIR",
     "SENTINEL_FEATURIZER_PATH",
     "SENTINEL_DEMO_FLOWS_PATH",
+    "SENTINEL_INJECTION_MODEL_DIR",
 )
 
 
@@ -56,6 +58,14 @@ def synthetic_csv(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def flows(synthetic_csv: Path) -> pd.DataFrame:
     """The synthetic flows, normalized."""
     return pd.concat(parse_cicids_file(synthetic_csv, chunk_rows=250), ignore_index=True)
+
+
+@pytest.fixture(autouse=True)
+def _no_registered_classifier() -> Iterator[None]:
+    """Each test starts and ends with pattern-only injection detection."""
+    use_classifier(None)
+    yield
+    use_classifier(None)
 
 
 @dataclass(frozen=True)

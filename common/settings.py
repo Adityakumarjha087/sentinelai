@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     detector_dir: Path | None = None
     featurizer_path: Path | None = None
     demo_flows_path: Path | None = None
+    injection_model_dir: Path | None = None
     max_detections: int = 500
 
     @property
@@ -49,6 +50,11 @@ class Settings(BaseSettings):
     def flow_featurizer_path(self) -> Path:
         """Featurizer the flow detector was trained with (``make data``)."""
         return self.featurizer_path or self.processed_dir / "features" / "cicids2017" / "featurizer.json"
+
+    @property
+    def injection_classifier_dir(self) -> Path:
+        """Fine-tuned prompt-injection classifier (``sentinel-guard train``)."""
+        return self.injection_model_dir or self.models_dir / "injection" / "distilbert"
 
     @property
     def flow_demo_path(self) -> Path:

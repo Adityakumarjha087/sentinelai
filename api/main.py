@@ -106,6 +106,7 @@ def create_app(
     *,
     feed: DetectionFeed | None = None,
     unavailable: dict[str, str] | None = None,
+    injection_classifier: dict[str, Any] | None = None,
 ) -> FastAPI:
     """Build the API around host events, optional flow detections and knowledge base, and an analyst."""
     app = FastAPI(title="SentinelAI", version="0.1.0")
@@ -118,6 +119,7 @@ def create_app(
             "events": len(events),
             "knowledge_base": retriever is not None,
             "detector": feed.summary if feed is not None else None,
+            "injection_classifier": injection_classifier,
             "unavailable": unavailable or {},
         }
 
@@ -182,4 +184,10 @@ def create_app(
 def default_app() -> FastAPI:
     """App over the Sysmon sample plus whatever is built (``uvicorn --factory api.main:default_app``)."""
     resources = load_resources()
-    return create_app(resources.events, resources.retriever, feed=resources.feed, unavailable=resources.unavailable)
+    return create_app(
+        resources.events,
+        resources.retriever,
+        feed=resources.feed,
+        unavailable=resources.unavailable,
+        injection_classifier=resources.injection_classifier,
+    )

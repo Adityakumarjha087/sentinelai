@@ -1,15 +1,17 @@
 """Load what this deployment has: the Sysmon sample always, the rest when built.
 
-The knowledge base (``make kb``) and the flow detector (``make data train``)
-are optional. Each one that is missing or fails to load is skipped with a
-reason in :attr:`Resources.unavailable`, so the API and dashboard still start
-on a fresh checkout and say what they are running without.
+The knowledge base (``make kb``), the flow detector (``make data train``) and
+the prompt-injection classifier (``make injection-model``) are optional. Each
+one that is missing or fails to load is skipped with a reason in
+:attr:`Resources.unavailable`, so the API and dashboard still start on a fresh
+checkout and say what they are running without.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 import pandas as pd
 
@@ -17,6 +19,7 @@ from common.settings import Settings, get_settings
 from data.parsers.sysmon import parse_sysmon_file
 from data.schema import events_to_frame
 from detection.service import PEOPLE_ONLY, DetectionFeed, FlowDetector, build_feed, read_flows
+from guardrails.injection import use_classifier
 from rag.retriever import HybridRetriever
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,7 @@ class Resources:
     events: pd.DataFrame
     retriever: HybridRetriever | None = None
     feed: DetectionFeed | None = None
+    injection_classifier: dict[str, Any] | None = None
     unavailable: dict[str, str] = field(default_factory=dict)
 
     def investigation_events(self) -> pd.DataFrame:
@@ -60,6 +64,13 @@ def load_detection_feed(settings: Settings) -> DetectionFeed:
     return build_feed(detector, read_flows(path), source=path.name, max_alerts=settings.max_detections)
 
 
+def load_injection_classifier(settings: Settings) -> Any:
+    """The fine-tuned classifier, on CPU (what the containers have)."""
+    from guardrails.classifier import InjectionClassifier
+
+    return InjectionClassifier.load(settings.injection_classifier_dir)
+
+
 def load_resources(settings: Settings | None = None) -> Resources:
     """Load the sample events and whichever optional artifacts exist."""
     settings = settings or get_settings()
@@ -88,6 +99,20 @@ def load_resources(settings: Settings | None = None) -> Resources:
         except Exception as exc:
             logger.warning("flow detector failed to load: %s", exc)
             resources.unavailable["detector"] = f"failed to load: {type(exc).__name__}"
+
+    use_classifier(None)
+    if not (settings.injection_classifier_dir / "metadata.json").exists():
+        reason = "not built (run `make injection-model`); injection detection uses patterns only"
+        resources.unavailable["injection_classifier"] = reason
+    else:
+        try:
+            classifier = load_injection_classifier(settings)
+        except Exception as exc:
+            logger.warning("injection classifier failed to load: %s", exc)
+            resources.unavailable["injection_classifier"] = f"failed to load: {type(exc).__name__}; patterns only"
+        else:
+            use_classifier(classifier)
+            resources.injection_classifier = classifier.summary()
 
     for name, reason in resources.unavailable.items():
         logger.warning("running without the %s: %s", name.replace("_", " "), reason)

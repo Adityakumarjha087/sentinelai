@@ -1,14 +1,18 @@
-"""Heuristic prompt-injection detector for log content.
+"""Prompt-injection detector for log content: patterns, plus a classifier when one is loaded.
 
-This is a pattern-based detector, not the fine-tuned DistilBERT classifier from
-the project plan (not built yet). It is deliberately high-recall: a hit never
-blocks an investigation, it only stops the agent from auto-closing the alert.
+The patterns always run. When a fine-tuned classifier is registered with
+:func:`use_classifier` (the API and dashboard do this when ``sentinel-guard
+train`` has been run), text it scores at or above its threshold is flagged
+too. Either signal is enough. A hit never blocks an investigation; it only
+stops the agent from auto-closing the alert.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 from guardrails.sanitize import sanitize_text
 
@@ -35,16 +39,48 @@ _PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 
+class InjectionScorer(Protocol):
+    """A model that scores text for prompt injection (see :mod:`guardrails.classifier`)."""
+
+    threshold: float
+
+    def score(self, texts: Sequence[str]) -> list[float]: ...
+
+
+_classifier: InjectionScorer | None = None
+
+
+def use_classifier(classifier: InjectionScorer | None) -> None:
+    """Register (or with ``None``, remove) the classifier :func:`detect_injection` consults."""
+    global _classifier
+    _classifier = classifier
+
+
+def active_classifier() -> InjectionScorer | None:
+    return _classifier
+
+
 @dataclass(frozen=True)
 class InjectionFinding:
     """Result of scanning one piece of untrusted text."""
 
     is_suspicious: bool
     matched: tuple[str, ...]
+    classifier_score: float | None = None
+
+
+def pattern_matches(text: str) -> tuple[str, ...]:
+    """Names of the patterns that match ``text``."""
+    return tuple(name for name, pattern in _PATTERNS.items() if pattern.search(text))
 
 
 def detect_injection(text: object) -> InjectionFinding:
     """Flag text that looks like instructions aimed at an AI system."""
     cleaned = sanitize_text(text, 20_000)
-    matched = tuple(name for name, pattern in _PATTERNS.items() if pattern.search(cleaned))
-    return InjectionFinding(is_suspicious=bool(matched), matched=matched)
+    matched = pattern_matches(cleaned)
+    score = None
+    if _classifier is not None:
+        score = _classifier.score([cleaned])[0]
+        if score >= _classifier.threshold:
+            matched = (*matched, "classifier")
+    return InjectionFinding(is_suspicious=bool(matched), matched=matched, classifier_score=score)

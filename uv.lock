@@ -2957,6 +2957,7 @@ dependencies = [
     { name = "streamlit" },
     { name = "torch", version = "2.15.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.15.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
+    { name = "transformers" },
     { name = "uvicorn" },
 ]
 
@@ -2999,6 +3000,7 @@ requires-dist = [
     { name = "streamlit", specifier = ">=1.38" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.3" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.3", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "transformers", specifier = ">=4.44" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["llm"]

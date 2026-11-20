@@ -48,9 +48,11 @@ def status_line(loaded: Resources) -> str:
     """What this dashboard is running with, stated plainly."""
     kb = "loaded" if loaded.retriever else loaded.unavailable.get("knowledge_base", "not loaded")
     detector = loaded.feed.summary["detector"] if loaded.feed else loaded.unavailable.get("detector", "not loaded")
+    injection = "patterns + fine-tuned DistilBERT" if loaded.injection_classifier else "patterns only"
     return (
         "Host events: a synthetic Sysmon sample. No LLM is configured, so investigations use the offline "
-        f"rule-based analyst - a baseline, not a language model. Knowledge base: {kb}. Flow detector: {detector}."
+        f"rule-based analyst - a baseline, not a language model. Knowledge base: {kb}. Flow detector: {detector}. "
+        f"Injection detection: {injection}."
     )
 
 

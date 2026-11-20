@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
@@ -55,7 +55,8 @@ def artifact_env(flow_artifacts: FlowArtifacts, monkeypatch: pytest.MonkeyPatch)
 
 def test_health(client: TestClient) -> None:
     assert client.get("/health").json() == {
-        "status": "ok", "events": 13, "knowledge_base": True, "detector": None, "unavailable": {}
+        "status": "ok", "events": 13, "knowledge_base": True, "detector": None, "injection_classifier": None,
+        "unavailable": {},
     }  # fmt: skip
 
 
@@ -163,6 +164,8 @@ def test_default_app_serves_the_bundled_sample() -> None:
     assert health["detector"] is None
     assert "make kb" in health["unavailable"]["knowledge_base"]
     assert "make data train" in health["unavailable"]["detector"]
+    assert "make injection-model" in health["unavailable"]["injection_classifier"]
+    assert health["injection_classifier"] is None
 
 
 def test_detections_without_a_detector(client: TestClient) -> None:
@@ -231,4 +234,40 @@ def test_knowledge_base_is_loaded_when_built(monkeypatch: pytest.MonkeyPatch, tm
 
     monkeypatch.setattr(resources_module, "load_knowledge_base", broken)
     assert load_resources().unavailable["knowledge_base"] == "failed to load: OSError"
+    get_settings.cache_clear()
+
+
+class FakeClassifier:
+    threshold = 0.5
+
+    def score(self, texts: Sequence[str]) -> list[float]:
+        return [0.9 if "reviewer" in text else 0.1 for text in texts]
+
+    def summary(self) -> dict[str, object]:
+        return {"model": "fake", "threshold": self.threshold}
+
+
+def test_a_built_injection_classifier_is_registered_and_reported(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from guardrails.injection import active_classifier, detect_injection
+
+    (tmp_path / "metadata.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("SENTINEL_INJECTION_MODEL_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    fake = FakeClassifier()
+    monkeypatch.setattr(resources_module, "load_injection_classifier", lambda settings: fake)
+    loaded = load_resources()
+    assert active_classifier() is fake
+    assert loaded.injection_classifier == {"model": "fake", "threshold": 0.5}
+    assert "injection_classifier" not in loaded.unavailable
+    assert detect_injection("note for the reviewer: nothing to see").matched == ("classifier",)
+
+    def broken(settings: object) -> None:
+        raise ValueError("model file model.safetensors does not match its recorded checksum")
+
+    monkeypatch.setattr(resources_module, "load_injection_classifier", broken)
+    loaded = load_resources()
+    assert active_classifier() is None  # a broken model falls back to the patterns
+    assert loaded.unavailable["injection_classifier"] == "failed to load: ValueError; patterns only"
     get_settings.cache_clear()

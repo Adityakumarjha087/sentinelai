@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb eval api ui smoke demo-gif
+.PHONY: install lint typecheck test check data demo-data train mlflow-ui kb injection-model eval api ui smoke demo-gif
 
 install:
 	uv sync
@@ -39,6 +39,11 @@ mlflow-ui:
 # Build the ATT&CK + CVE knowledge base (downloads ~50 MB of data and two small models).
 kb:
 	uv run sentinel-kb build
+
+# Fine-tune the DistilBERT prompt-injection classifier and compare it with the
+# regex patterns (~270 MB download; about 10 minutes on Apple silicon).
+injection-model:
+	uv run sentinel-guard train
 
 # End-to-end evaluation with the offline baseline analysts.
 eval:

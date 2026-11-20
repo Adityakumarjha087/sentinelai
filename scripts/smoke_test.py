@@ -59,13 +59,17 @@ def post_json(url: str, body: dict[str, Any]) -> Any:
     return json.loads(raw)
 
 
-def smoke_test(api: str, ui: str | None, *, expect_kb: bool, expect_detector: bool) -> None:
+def smoke_test(
+    api: str, ui: str | None, *, expect_kb: bool, expect_detector: bool, expect_injection_classifier: bool = False
+) -> None:
     health = get_json(f"{api}/health")
     check(health["status"] == "ok" and health["events"] == 13, "API is up with the 13-event Sysmon sample")
     if expect_kb:
         check(health["knowledge_base"] is True, "knowledge base loaded")
     if expect_detector:
         check(health["detector"] is not None, "flow detector loaded")
+    if expect_injection_classifier:
+        check(health["injection_classifier"] is not None, "prompt-injection classifier loaded")
 
     alerts = get_json(f"{api}/alerts?limit=13")
     flagged = [alert for alert in alerts if alert["injection_suspected"]]
@@ -110,6 +114,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ui", default="http://127.0.0.1:8501", help="dashboard URL; 'none' to skip")
     parser.add_argument("--expect-kb", action="store_true", help="fail unless the knowledge base is loaded")
     parser.add_argument("--expect-detector", action="store_true", help="fail unless the flow detector is loaded")
+    parser.add_argument(
+        "--expect-injection-classifier", action="store_true", help="fail unless the DistilBERT classifier is loaded"
+    )
     args = parser.parse_args(argv)
     try:
         smoke_test(
@@ -117,6 +124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             None if args.ui == "none" else args.ui.rstrip("/"),
             expect_kb=args.expect_kb,
             expect_detector=args.expect_detector,
+            expect_injection_classifier=args.expect_injection_classifier,
         )
     except (CheckFailed, OSError, KeyError, ValueError) as error:
         print(f"FAIL {error}", file=sys.stderr)

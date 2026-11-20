@@ -27,6 +27,7 @@ dependencies = [
     "sentence-transformers>=3",
     "streamlit>=1.38",
     "torch>=2.3",
+    "transformers>=4.44",
     "uvicorn>=0.30",
 ]
 
@@ -35,6 +36,7 @@ sentinel-data = "data.cli:main"
 sentinel-detect = "detection.train:main"
 sentinel-kb = "rag.cli:main"
 sentinel-eval = "eval.harness:main"
+sentinel-guard = "guardrails.classifier:main"
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]

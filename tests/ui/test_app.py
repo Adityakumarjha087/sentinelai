@@ -35,6 +35,7 @@ def test_dashboard_renders_feed_and_investigates_an_alert() -> None:
     assert "Not investigated yet." in infos(app)
     assert any(text.startswith("Flow detector not loaded: not built") for text in infos(app))
     assert "Knowledge base: not built" in app.caption[0].value
+    assert "Injection detection: patterns only." in app.caption[0].value
 
     app.button(key="host-one").click().run()
     assert not app.exception
