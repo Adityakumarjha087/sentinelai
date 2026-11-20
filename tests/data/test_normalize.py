@@ -14,9 +14,7 @@ from data.normalize import (
 from data.schema import COMMON_COLUMNS, EventType, frame_to_events
 
 
-def test_cicids_dir_round_trips_through_parquet(
-    synthetic_csv: Path, flows: pd.DataFrame, tmp_path: Path
-) -> None:
+def test_cicids_dir_round_trips_through_parquet(synthetic_csv: Path, flows: pd.DataFrame, tmp_path: Path) -> None:
     written = normalize_cicids_dir(synthetic_csv.parent, tmp_path / "events", chunk_rows=128)
     (out_path,) = written
     assert out_path.name == "Synthetic-WorkingHours.parquet"

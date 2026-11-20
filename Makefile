@@ -11,7 +11,7 @@ typecheck:
 	uv run mypy .
 
 test:
-	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov-report=term-missing
+	uv run pytest --cov=common --cov=data --cov=detection --cov=rag --cov=agent --cov=guardrails --cov-report=term-missing
 
 check: lint typecheck test
 

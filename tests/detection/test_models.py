@@ -37,9 +37,7 @@ def test_attacks_score_higher_than_benign(fitted: Detector, detection_data: Dete
     assert roc_auc_score(test.is_attack, scores) > 0.9
 
 
-def test_save_and_load_reproduce_scores(
-    fitted: Detector, detection_data: DetectionData, tmp_path: Path
-) -> None:
+def test_save_and_load_reproduce_scores(fitted: Detector, detection_data: DetectionData, tmp_path: Path) -> None:
     fitted.save(tmp_path / fitted.name)
     restored = DETECTOR_TYPES[fitted.name].load(tmp_path / fitted.name)
     assert restored.params() == fitted.params()
@@ -79,11 +77,7 @@ def test_autoencoder_learns_and_stops_early(detection_data: DetectionData) -> No
 
 def test_autoencoder_is_a_symmetric_bottleneck() -> None:
     network = _Autoencoder(n_features=20, hidden=(16, 8), latent=4)
-    widths = [
-        m.out_features
-        for m in [*network.encoder, *network.decoder]
-        if isinstance(m, torch.nn.Linear)
-    ]
+    widths = [m.out_features for m in [*network.encoder, *network.decoder] if isinstance(m, torch.nn.Linear)]
     assert widths == [16, 8, 4, 8, 16, 20]
     assert network(torch.zeros(5, 20)).shape == (5, 20)
 

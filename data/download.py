@@ -17,12 +17,8 @@ logger = logging.getLogger(__name__)
 
 # file name -> SHA-256 of the parquet file at the pinned mirror commit.
 CICIDS_FILES: dict[str, str] = {
-    "Monday-WorkingHours.pcap_ISCX.csv.parquet": (
-        "dfdcef4b8670e52af54dc4f82174834365a393473e877174cca46d17b12dfd02"
-    ),
-    "Tuesday-WorkingHours.pcap_ISCX.csv.parquet": (
-        "27e83d518cb093faefd0f883cb4df3ad8b353f150934004f28d0e7962f9f31c4"
-    ),
+    "Monday-WorkingHours.pcap_ISCX.csv.parquet": ("dfdcef4b8670e52af54dc4f82174834365a393473e877174cca46d17b12dfd02"),
+    "Tuesday-WorkingHours.pcap_ISCX.csv.parquet": ("27e83d518cb093faefd0f883cb4df3ad8b353f150934004f28d0e7962f9f31c4"),
     "Wednesday-workingHours.pcap_ISCX.csv.parquet": (
         "d23a259820b16e1ad54f9f3b58d5727c5032d383015f90bc7c07cebbdf8a7140"
     ),
@@ -91,9 +87,7 @@ def download_file(
                 digest.update(block)
                 handle.write(block)
         if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
-            raise ChecksumMismatchError(
-                f"{dest.name}: expected sha256 {expected_sha256}, got {digest.hexdigest()}"
-            )
+            raise ChecksumMismatchError(f"{dest.name}: expected sha256 {expected_sha256}, got {digest.hexdigest()}")
         partial.replace(dest)
     finally:
         partial.unlink(missing_ok=True)

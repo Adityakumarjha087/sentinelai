@@ -35,11 +35,7 @@ def test_sample_file_parses_into_expected_events(sysmon_sample: Path) -> None:
 
 
 def test_fields_that_collide_with_common_columns_are_prefixed(sysmon_sample: Path) -> None:
-    registry = next(
-        event
-        for event in parse_sysmon_file(sysmon_sample)
-        if event.event_type is EventType.REGISTRY_EVENT
-    )
+    registry = next(event for event in parse_sysmon_file(sysmon_sample) if event.event_type is EventType.REGISTRY_EVENT)
     assert registry.attributes["sysmon_event_type"] == "SetValue"
     assert "CurrentVersion\\Run" in str(registry.attributes["target_object"])
 
@@ -59,21 +55,15 @@ def test_process_create_fields(sysmon_sample: Path) -> None:
 
 
 def test_network_connection_fields(sysmon_sample: Path) -> None:
-    beacon = [
-        event
-        for event in parse_sysmon_file(sysmon_sample)
-        if event.event_type is EventType.NETWORK_CONNECTION
-    ][-1]
+    beacon = [event for event in parse_sysmon_file(sysmon_sample) if event.event_type is EventType.NETWORK_CONNECTION][
+        -1
+    ]
     assert (beacon.src_ip, beacon.src_port) == ("10.20.4.112", 51902)
     assert (beacon.dst_ip, beacon.dst_port, beacon.protocol) == ("198.51.100.23", 8443, "tcp")
 
 
 def test_process_access_uses_source_image(sysmon_sample: Path) -> None:
-    access = next(
-        event
-        for event in parse_sysmon_file(sysmon_sample)
-        if event.event_type is EventType.PROCESS_ACCESS
-    )
+    access = next(event for event in parse_sysmon_file(sysmon_sample) if event.event_type is EventType.PROCESS_ACCESS)
     assert (access.process or "").endswith("svchost_update.exe")
     assert str(access.attributes["target_image"]).endswith("lsass.exe")
 

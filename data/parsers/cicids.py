@@ -154,14 +154,10 @@ def _read_chunks(path: Path, chunk_rows: int) -> Iterator[pd.DataFrame]:
     else:
         # Read every cell as text: type inference per chunk would make ``raw`` (and
         # integer-vs-float formatting) depend on the chunk size.
-        yield from pd.read_csv(
-            path, chunksize=chunk_rows, encoding="cp1252", encoding_errors="replace", dtype=str
-        )
+        yield from pd.read_csv(path, chunksize=chunk_rows, encoding="cp1252", encoding_errors="replace", dtype=str)
 
 
-def parse_cicids_file(
-    path: Path, chunk_rows: int = 100_000, max_rows: int | None = None
-) -> Iterator[pd.DataFrame]:
+def parse_cicids_file(path: Path, chunk_rows: int = 100_000, max_rows: int | None = None) -> Iterator[pd.DataFrame]:
     """Yield normalized chunks of a CICIDS2017 CSV or parquet file.
 
     Memory use is bounded by ``chunk_rows``. ``max_rows`` stops early after that

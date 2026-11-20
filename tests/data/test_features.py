@@ -66,19 +66,14 @@ def test_identifiers_and_clock_are_not_features(flows: pd.DataFrame) -> None:
     names = set(FlowFeaturizer().fit(flows).feature_names_)
     assert not names & {"src_ip", "dst_ip", "src_port", "dst_port", "label", "is_attack"}
     assert not names & {"hour_sin", "hour_cos"}
-    assert {"hour_sin", "hour_cos"} <= set(
-        FlowFeaturizer(include_time=True).fit(flows).feature_names_
-    )
+    assert {"hour_sin", "hour_cos"} <= set(FlowFeaturizer(include_time=True).fit(flows).feature_names_)
 
 
 def test_scan_stands_out_in_behavioral_features(flows: pd.DataFrame) -> None:
     features = FlowFeaturizer().fit_transform(flows)
     scan = (flows["label"] == "PortScan").to_numpy()
     benign = (flows["label"] == "BENIGN").to_numpy()
-    assert (
-        features.loc[scan, "src_unique_dst_ports"].median()
-        > features.loc[benign, "src_unique_dst_ports"].max()
-    )
+    assert features.loc[scan, "src_unique_dst_ports"].median() > features.loc[benign, "src_unique_dst_ports"].max()
 
 
 def test_heavy_tailed_columns_are_log_scaled(flows: pd.DataFrame) -> None:
@@ -119,9 +114,7 @@ def test_unfitted_and_malformed_inputs_raise(flows: pd.DataFrame) -> None:
         FlowFeaturizer().fit(flows.drop(columns=["src_ip"]))
 
 
-def test_build_feature_tables_fits_on_the_baseline_file(
-    flows: pd.DataFrame, tmp_path: Path
-) -> None:
+def test_build_feature_tables_fits_on_the_baseline_file(flows: pd.DataFrame, tmp_path: Path) -> None:
     events, out = tmp_path / "events", tmp_path / "features"
     benign = flows[flows["label"] == "BENIGN"]
     write_normalized([benign], events / "Monday-WorkingHours.parquet")

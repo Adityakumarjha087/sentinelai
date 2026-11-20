@@ -12,9 +12,7 @@ from data.cli import main
 
 
 @pytest.fixture
-def data_dir(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sysmon_sample: Path
-) -> Iterator[Path]:
+def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sysmon_sample: Path) -> Iterator[Path]:
     """An isolated data directory holding only the Sysmon sample."""
     root = tmp_path / "data"
     (root / "samples").mkdir(parents=True)
@@ -33,9 +31,7 @@ def test_offline_pipeline_end_to_end(data_dir: Path, capsys: pytest.CaptureFixtu
 
     processed = data_dir / "processed"
     events = pd.read_parquet(processed / "events" / "synthetic" / "Synthetic-WorkingHours.parquet")
-    features = pd.read_parquet(
-        processed / "features" / "synthetic" / "Synthetic-WorkingHours.parquet"
-    )
+    features = pd.read_parquet(processed / "features" / "synthetic" / "Synthetic-WorkingHours.parquet")
     assert len(events) == len(features) == 2_600
     assert features["event_id"].tolist() == events["event_id"].tolist()
     assert (processed / "features" / "synthetic" / "featurizer.json").is_file()

@@ -21,18 +21,14 @@ def best_f1_threshold(is_attack: Truth, scores: Scores) -> float:
     # The final precision/recall point has no threshold; drop it.
     precision, recall = precision[:-1], recall[:-1]
     denominator = precision + recall
-    f1 = np.divide(
-        2 * precision * recall, denominator, out=np.zeros_like(denominator), where=denominator > 0
-    )
+    f1 = np.divide(2 * precision * recall, denominator, out=np.zeros_like(denominator), where=denominator > 0)
     return float(thresholds[int(np.argmax(f1))])
 
 
 def evaluate(is_attack: Truth, scores: Scores, threshold: float) -> dict[str, float]:
     """Precision, recall, F1 and false-positive rate at ``threshold``, plus ROC/PR AUC."""
     predicted = scores >= threshold
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        is_attack, predicted, average="binary", zero_division=0
-    )
+    precision, recall, f1, _ = precision_recall_fscore_support(is_attack, predicted, average="binary", zero_division=0)
     benign = ~is_attack
     false_positive_rate = float(predicted[benign].mean()) if benign.any() else 0.0
     return {

@@ -95,9 +95,7 @@ class FlowFeaturizer:
     medians, and compress heavy-tailed columns with a signed ``log1p``.
     """
 
-    def __init__(
-        self, window: str = "1min", include_time: bool = False, log_threshold: float = 100.0
-    ) -> None:
+    def __init__(self, window: str = "1min", include_time: bool = False, log_threshold: float = 100.0) -> None:
         self.window = window
         self.include_time = include_time
         self.log_threshold = log_threshold
@@ -186,9 +184,7 @@ def _load_without_raw(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path, columns=columns)
 
 
-def build_feature_tables(
-    normalized_dir: Path, out_dir: Path, *, fit_on: str = "monday"
-) -> FlowFeaturizer:
+def build_feature_tables(normalized_dir: Path, out_dir: Path, *, fit_on: str = "monday") -> FlowFeaturizer:
     """Featurize every normalized flow file, fitting on the benign baseline only.
 
     The featurizer is fitted on files whose name contains ``fit_on`` (Monday is

@@ -30,6 +30,9 @@ sentinel-data = "data.cli:main"
 sentinel-detect = "detection.train:main"
 sentinel-kb = "rag.cli:main"
 
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+
 [dependency-groups]
 dev = [
     "mypy>=1.10",
@@ -51,14 +54,14 @@ addopts = "-ra --strict-markers"
 markers = ["network: test needs internet access (deselected by default)"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "S", "RUF", "PT", "C4"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "E501"]
+"tests/**" = ["S101", "E501", "RUF001"]
 
 [tool.mypy]
 python_version = "3.11"

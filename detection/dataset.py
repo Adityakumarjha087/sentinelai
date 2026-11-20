@@ -69,9 +69,7 @@ def _sample(frame: pd.DataFrame, max_rows: int | None, rng: np.random.Generator)
     return frame.iloc[np.sort(np.concatenate(picked))]
 
 
-def _stratified_halves(
-    frame: pd.DataFrame, rng: np.random.Generator
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _stratified_halves(frame: pd.DataFrame, rng: np.random.Generator) -> tuple[pd.DataFrame, pd.DataFrame]:
     first: list[npt.NDArray[np.int64]] = []
     second: list[npt.NDArray[np.int64]] = []
     for positions in frame.groupby("label", sort=True).indices.values():

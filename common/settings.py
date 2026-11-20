@@ -14,8 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Community parquet mirror of the official CICIDS2017 "TrafficLabelling" CSVs,
 # pinned to a commit so every download is byte-for-byte reproducible.
 DEFAULT_CICIDS_BASE_URL = (
-    "https://huggingface.co/datasets/bvsam/cic-ids-2017/resolve/"
-    "70bac6246d99cf046186a02e1cce6883e2ffe7ea/traffic_labels"
+    "https://huggingface.co/datasets/bvsam/cic-ids-2017/resolve/70bac6246d99cf046186a02e1cce6883e2ffe7ea/traffic_labels"
 )
 
 

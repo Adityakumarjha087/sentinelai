@@ -61,9 +61,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     search.add_argument("--mode", choices=("hybrid", "bm25", "vector"), default="hybrid")
     search.add_argument("--no-rerank", action="store_true")
     args = parser.parse_args(argv)
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     settings = get_settings()
     index_dir = settings.processed_dir / "kb"

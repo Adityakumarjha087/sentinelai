@@ -71,13 +71,9 @@ def documents() -> list[KBDocument]:
 
 
 @pytest.fixture(scope="module")
-def retriever(
-    documents: list[KBDocument], tmp_path_factory: pytest.TempPathFactory
-) -> HybridRetriever:
+def retriever(documents: list[KBDocument], tmp_path_factory: pytest.TempPathFactory) -> HybridRetriever:
     chunks = [chunk for document in documents for chunk in chunk_document(document)]
-    return HybridRetriever.build(
-        documents, chunks, HashingEmbedder(), tmp_path_factory.mktemp("kb")
-    )
+    return HybridRetriever.build(documents, chunks, HashingEmbedder(), tmp_path_factory.mktemp("kb"))
 
 
 def test_attack_parsing_skips_revoked_and_cleans_markup() -> None:
@@ -149,9 +145,7 @@ def test_reciprocal_rank_fusion_rewards_agreement() -> None:
         ("Log4j2 JNDI remote code execution", "CVE-2021-44228"),
     ],
 )
-def test_search_finds_the_right_document(
-    retriever: HybridRetriever, mode: str, query: str, expected: str
-) -> None:
+def test_search_finds_the_right_document(retriever: HybridRetriever, mode: str, query: str, expected: str) -> None:
     results = retriever.search(query, top_k=2, mode=mode)
     assert results[0].document.doc_id == expected
     assert results[0].passage.startswith(expected)
@@ -196,9 +190,7 @@ def test_index_survives_a_reload(documents: list[KBDocument], tmp_path: Path) ->
     built = HybridRetriever.build(documents, chunks, HashingEmbedder(), tmp_path)
     loaded = HybridRetriever.load(tmp_path, HashingEmbedder())
     query = "dump credentials from lsass"
-    assert [r.document.doc_id for r in loaded.search(query)] == [
-        r.document.doc_id for r in built.search(query)
-    ]
+    assert [r.document.doc_id for r in loaded.search(query)] == [r.document.doc_id for r in built.search(query)]
     rebuilt = HybridRetriever.build(documents[:1], chunks[:1], HashingEmbedder(), tmp_path)
     assert len(rebuilt.search("adversaries", top_k=5)) == 1  # the old index was replaced
     with pytest.raises(ValueError, match="no chunks"):

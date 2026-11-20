@@ -73,9 +73,7 @@ def train_and_evaluate(detector: Detector, data: DetectionData) -> RunResult:
         threshold=threshold,
         validation=evaluate(data.validation.is_attack, validation_scores, threshold),
         test=evaluate(data.test.is_attack, test_scores, threshold),
-        test_recall_by_label=per_label_recall(
-            data.test.labels, data.test.is_attack, test_scores, threshold
-        ),
+        test_recall_by_label=per_label_recall(data.test.labels, data.test.is_attack, test_scores, threshold),
         fit_seconds=fit_seconds,
         score_seconds_per_1k=1000 * score_seconds / max(len(data.test), 1),
     )
@@ -92,9 +90,7 @@ def results_table(results: Sequence[RunResult]) -> str:
     lines += ["", "| attack label | " + " | ".join(r.name for r in results) + " |"]
     lines.append("|---|" + "---|" * len(results))
     for label in labels:
-        cells = " | ".join(
-            f"{r.test_recall_by_label.get(label, float('nan')):.3f}" for r in results
-        )
+        cells = " | ".join(f"{r.test_recall_by_label.get(label, float('nan')):.3f}" for r in results)
         lines.append(f"| {label} | {cells} |")
     return "\n".join(lines) + "\n"
 
@@ -103,9 +99,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def save_model(
-    detector: Detector, result: RunResult, feature_names: list[str], directory: Path
-) -> None:
+def save_model(detector: Detector, result: RunResult, feature_names: list[str], directory: Path) -> None:
     """Write the model plus everything needed to use it: threshold, features, metrics."""
     if directory.exists():
         shutil.rmtree(directory)
@@ -191,9 +185,7 @@ def run_experiment(
             mlflow.log_metric("score_seconds_per_1k", result.score_seconds_per_1k)
             mlflow.log_metrics({f"val_{k}": v for k, v in result.validation.items()})
             mlflow.log_metrics({f"test_{k}": v for k, v in result.test.items()})
-            mlflow.log_metrics(
-                {f"recall_{_metric_key(k)}": v for k, v in result.test_recall_by_label.items()}
-            )
+            mlflow.log_metrics({f"recall_{_metric_key(k)}": v for k, v in result.test_recall_by_label.items()})
             for step in getattr(detector, "history_", []):
                 mlflow.log_metrics(
                     {"train_loss": step["train_loss"], "holdout_loss": step["holdout_loss"]},
@@ -202,9 +194,7 @@ def run_experiment(
             with tempfile.TemporaryDirectory() as scratch:
                 save_model(detector, result, data.feature_names, Path(scratch) / detector.name)
                 mlflow.log_artifacts(scratch)
-        logger.info(
-            "%s: test F1 %.4f, ROC-AUC %.4f", result.name, result.test["f1"], result.test["roc_auc"]
-        )
+        logger.info("%s: test F1 %.4f, ROC-AUC %.4f", result.name, result.test["f1"], result.test["roc_auc"])
         results.append(result)
         if best is None or result.validation["f1"] > best[1].validation["f1"]:
             best = (detector, result)
@@ -226,9 +216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     settings = get_settings()
     data = load_detection_data(

@@ -36,9 +36,7 @@ def test_local_timestamps_handle_12_hour_clock_and_timezone() -> None:
 
 
 def test_labels_are_trimmed_and_dash_is_repaired() -> None:
-    labels = normalize_label(
-        pd.Series([" BENIGN ", "Web Attack \x96 XSS", "Web Attack \ufffd Sql Injection"])
-    )
+    labels = normalize_label(pd.Series([" BENIGN ", "Web Attack \x96 XSS", "Web Attack \ufffd Sql Injection"]))
     assert labels.tolist() == ["BENIGN", "Web Attack - XSS", "Web Attack - Sql Injection"]
 
 

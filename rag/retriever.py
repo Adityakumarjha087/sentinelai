@@ -137,17 +137,14 @@ class HybridRetriever:
         return cls(documents, chunks, embedder, collection, reranker)
 
     @classmethod
-    def load(
-        cls, directory: Path, embedder: Embedder, reranker: Reranker | None = None
-    ) -> HybridRetriever:
+    def load(cls, directory: Path, embedder: Embedder, reranker: Reranker | None = None) -> HybridRetriever:
         """Open an index written by :meth:`build`. Use the same embedder it was built with."""
         documents = [
             KBDocument(**json.loads(line))
             for line in (directory / _DOCUMENTS_FILE).read_text(encoding="utf-8").splitlines()
         ]
         chunks = [
-            Chunk(**json.loads(line))
-            for line in (directory / _CHUNKS_FILE).read_text(encoding="utf-8").splitlines()
+            Chunk(**json.loads(line)) for line in (directory / _CHUNKS_FILE).read_text(encoding="utf-8").splitlines()
         ]
         collection = cls._client(directory).get_collection(_COLLECTION)
         return cls(documents, chunks, embedder, collection, reranker)

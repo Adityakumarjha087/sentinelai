@@ -33,18 +33,14 @@ def _build_parser() -> argparse.ArgumentParser:
     features.add_argument("--fit-on", default="monday", help="file-name fragment of the fit set")
 
     stats = commands.add_parser("stats", help="summarize normalized events")
-    stats.add_argument(
-        "--dataset", choices=("cicids2017", "synthetic", "sysmon"), default="cicids2017"
-    )
+    stats.add_argument("--dataset", choices=("cicids2017", "synthetic", "sysmon"), default="cicids2017")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI; returns a process exit code."""
     args = _build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     settings = get_settings()
     events_dir = settings.processed_dir / "events"
     features_dir = settings.processed_dir / "features"
@@ -68,9 +64,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger.info("normalized %d Sysmon events", count)
         logger.info("normalized %d flow events", sum(written.values()))
     elif args.command == "features":
-        featurizer = build_feature_tables(
-            events_dir / args.dataset, features_dir / args.dataset, fit_on=args.fit_on
-        )
+        featurizer = build_feature_tables(events_dir / args.dataset, features_dir / args.dataset, fit_on=args.fit_on)
         logger.info("built %d features per flow", len(featurizer.feature_names_))
     elif args.command == "stats":
         columns = ["timestamp", "event_type", "label", "is_attack"]

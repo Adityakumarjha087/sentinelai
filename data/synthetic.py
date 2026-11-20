@@ -57,9 +57,7 @@ def generate_cicids_like_csv(
 
     for _ in range(n_benign):
         moment = _DAY + timedelta(seconds=int(rng.integers(9 * 3600, 17 * 3600)))
-        dport, proto = [(443, 6), (80, 6), (53, 17), (22, 6)][
-            int(rng.choice(4, p=[0.5, 0.2, 0.25, 0.05]))
-        ]
+        dport, proto = [(443, 6), (80, 6), (53, 17), (22, 6)][int(rng.choice(4, p=[0.5, 0.2, 0.25, 0.05]))]
         fwd, bwd = int(rng.integers(1, 40)), int(rng.integers(1, 60))
         timed.append((moment,
             _row(

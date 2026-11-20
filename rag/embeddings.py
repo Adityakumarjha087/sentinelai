@@ -29,9 +29,7 @@ class SentenceTransformerEmbedder:
         self._model = SentenceTransformer(model_name)
 
     def embed(self, texts: Sequence[str]) -> Vectors:
-        vectors = self._model.encode(
-            list(texts), normalize_embeddings=True, show_progress_bar=False, batch_size=64
-        )
+        vectors = self._model.encode(list(texts), normalize_embeddings=True, show_progress_bar=False, batch_size=64)
         return np.asarray(vectors, dtype=np.float32)
 
 

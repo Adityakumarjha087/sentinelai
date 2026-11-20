@@ -60,11 +60,7 @@ def _attack_id(obj: dict[str, Any]) -> tuple[str, str] | None:
 
 def parse_attack(bundle: dict[str, Any]) -> list[KBDocument]:
     """Extract active techniques (with their mitigations) from an ATT&CK STIX bundle."""
-    objects = [
-        obj
-        for obj in bundle.get("objects", [])
-        if not obj.get("revoked") and not obj.get("x_mitre_deprecated")
-    ]
+    objects = [obj for obj in bundle.get("objects", []) if not obj.get("revoked") and not obj.get("x_mitre_deprecated")]
     by_id = {obj["id"]: obj for obj in objects}
     mitigations: dict[str, list[str]] = {}
     for obj in objects:
@@ -113,9 +109,7 @@ def parse_nvd(payload: dict[str, Any]) -> list[KBDocument]:
     documents: list[KBDocument] = []
     for item in payload.get("vulnerabilities", []):
         cve = item.get("cve", {})
-        description = next(
-            (d["value"] for d in cve.get("descriptions", []) if d.get("lang") == "en"), ""
-        )
+        description = next((d["value"] for d in cve.get("descriptions", []) if d.get("lang") == "en"), "")
         if not cve.get("id") or not description:
             continue
         score, severity = _cvss(cve.get("metrics", {}))

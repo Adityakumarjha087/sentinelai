@@ -99,23 +99,15 @@ def test_runs_are_tracked_in_mlflow(experiment: tuple[list[RunResult], Path, str
     for result in results:
         run = by_name[result.name]
         assert run.data.metrics["test_f1"] == pytest.approx(result.test["f1"])
-        assert run.data.metrics["recall_portscan"] == pytest.approx(
-            result.test_recall_by_label["PortScan"]
-        )
+        assert run.data.metrics["recall_portscan"] == pytest.approx(result.test_recall_by_label["PortScan"])
         assert run.data.params["model"] == result.name
-        artifacts = mlflow.artifacts.list_artifacts(
-            run_id=run.info.run_id, artifact_path=result.name
-        )
+        artifacts = mlflow.artifacts.list_artifacts(run_id=run.info.run_id, artifact_path=result.name)
         assert METADATA_FILE in {Path(item.path).name for item in artifacts}
-    history = mlflow.MlflowClient().get_metric_history(
-        by_name["autoencoder"].info.run_id, "holdout_loss"
-    )
+    history = mlflow.MlflowClient().get_metric_history(by_name["autoencoder"].info.run_id, "holdout_loss")
     assert len(history) > 1
 
 
-def test_tampered_model_files_are_refused(
-    experiment: tuple[list[RunResult], Path, str], tmp_path: Path
-) -> None:
+def test_tampered_model_files_are_refused(experiment: tuple[list[RunResult], Path, str], tmp_path: Path) -> None:
     _, out_dir, _ = experiment
     copy = tmp_path / "best"
     copy.mkdir()

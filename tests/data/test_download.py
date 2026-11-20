@@ -29,9 +29,7 @@ def make_client(calls: list[str], status: int = 200, body: bytes = PAYLOAD) -> h
 
 def test_downloads_and_verifies(tmp_path: Path) -> None:
     calls: list[str] = []
-    dest = download_file(
-        URL, tmp_path / "raw" / "a.parquet", expected_sha256=DIGEST, client=make_client(calls)
-    )
+    dest = download_file(URL, tmp_path / "raw" / "a.parquet", expected_sha256=DIGEST, client=make_client(calls))
     assert dest.read_bytes() == PAYLOAD
     assert sha256_of(dest) == DIGEST
     assert calls == [URL]

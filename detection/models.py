@@ -199,9 +199,7 @@ class AutoencoderDetector:
             network.eval()
             with torch.no_grad():
                 holdout_loss = float(loss_fn(network(holdout), holdout).item())
-            self.history_.append(
-                {"epoch": epoch, "train_loss": total / len(train), "holdout_loss": holdout_loss}
-            )
+            self.history_.append({"epoch": epoch, "train_loss": total / len(train), "holdout_loss": holdout_loss})
             if holdout_loss < best_loss - 1e-5:
                 best_loss, stale = holdout_loss, 0
                 best_state = {k: v.detach().clone() for k, v in network.state_dict().items()}

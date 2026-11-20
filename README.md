@@ -15,8 +15,8 @@ the analyst.
 | 1 | Data pipeline: download, parse, normalize, feature engineering | **Done** |
 | 2 | Detection models (Isolation Forest + PyTorch autoencoder), MLflow | **Done** |
 | 3 | Knowledge base: MITRE ATT&CK + NVD, hybrid retrieval | **Done** |
-| 4 | Investigation agent with tools and structured verdicts | Planned |
-| 5 | Guardrails: sanitization, injection classifier, tool allow-list | Planned |
+| 4 | Investigation agent with tools and structured verdicts | **Built; not yet run against a live LLM** |
+| 5 | Guardrails: sanitization, injection detector, tool allow-list | **Partly done** (heuristic detector; DistilBERT classifier not built) |
 | 6 | Incident reports (Markdown / PDF) | Planned |
 | 7 | Evaluation harness | Planned |
 | 8 | Dashboard + API | Planned |
@@ -208,6 +208,42 @@ only - the real retrieval evaluation belongs to Phase 7):
 
 Fusion alone did not beat either single retriever on this small set; the
 reranker is what makes the hybrid pipeline worthwhile.
+
+## Phases 4-5 - investigation agent and guardrails
+
+The agent (`agent/investigator.py`) is a small hand-written state machine:
+alert -> model turn -> allow-listed tool calls -> ... -> verdict JSON -> policy
+checks. It returns a `Verdict` (`is_malicious`, `confidence`, `severity`,
+`attack_techniques`, `evidence`, `recommended_actions`) plus a full trace.
+
+Tools (all read-only): `query_logs`, `get_related_events`, `get_ip_reputation`
+(mock data, labelled as such), `search_attack_kb`, `score_severity`.
+
+**The model proposes; code enforces.** Defences do not rely on the model
+behaving:
+
+| Threat | Defence |
+|---|---|
+| Instructions hidden in a log line | Log text is sanitized (control/zero-width characters, look-alike letters) and wrapped in a delimiter with a random nonce; the system prompt declares it data |
+| Model asked to call a dangerous tool | Fixed allow-list; no tool can change any system; a blocked call forces human review |
+| Model talked into "benign, close the alert" | If the alert or any tool output looks like an injection, a benign verdict is never auto-closed |
+| Invented ATT&CK ids | Ids not in the knowledge base are dropped and noted |
+| Malformed or padded output | Strict schema (`extra="forbid"`), one repair attempt, then fail closed to human review |
+| Destructive recommendations | Block/isolate/delete-style actions always require human approval |
+
+The tests script the model, including a **simulated hijacked model** that obeys
+the injected text; the guardrails hold in every such case.
+
+**Not done yet, stated plainly**
+
+- The agent has not been run against a real LLM. Only an Anthropic client is
+  written (`pip install .[llm]`, `ANTHROPIC_API_KEY` in `.env`) and it is
+  untested; OpenAI and Ollama clients are not written.
+- The injection detector is a set of regular expressions, not the fine-tuned
+  DistilBERT classifier from the plan. It will miss paraphrased attacks.
+- No LangGraph; the loop is hand-written.
+- Phases 6-9 (reports, evaluation harness, dashboard/API, Docker/CI) are not
+  started.
 
 ## Limitations (so far)
 
