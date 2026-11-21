@@ -1,0 +1,9 @@
+# Dashboard theme. Streamlit reads this from the working directory (the repo
+# root for `make ui`, /app in the image). A blue accent keeps red for what it
+# means on this page: malicious verdicts and critical findings. Set per mode
+# (not in [theme]) so the dashboard still follows the viewer's light/dark setting.
+[theme.light]
+primaryColor = "#2563eb"
+
+[theme.dark]
+primaryColor = "#4b8df8"

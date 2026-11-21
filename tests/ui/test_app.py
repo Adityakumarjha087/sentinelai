@@ -27,6 +27,21 @@ def infos(app: AppTest) -> list[str]:
     return [str(info.value) for info in app.info]
 
 
+def captions(app: AppTest) -> list[str]:
+    return [str(caption.value) for caption in app.caption]
+
+
+def sidebar_status(app: AppTest) -> dict[str, str]:
+    """Component name -> detail, as the sidebar lists them."""
+    names = [str(md.value).split("**")[1] for md in app.sidebar.markdown]
+    details = [str(caption.value) for caption in app.sidebar.caption]
+    return dict(zip(names, details, strict=False))
+
+
+def metrics(app: AppTest) -> dict[str, str]:
+    return {metric.label: metric.value for metric in app.metric}
+
+
 def test_dashboard_renders_feed_and_investigates_an_alert() -> None:
     app = AppTest.from_file(APP, default_timeout=30).run()
     assert not app.exception
@@ -34,15 +49,28 @@ def test_dashboard_renders_feed_and_investigates_an_alert() -> None:
     assert len(app.dataframe[0].value) == 13
     assert "Not investigated yet." in infos(app)
     assert any(text.startswith("Flow detector not loaded: not built") for text in infos(app))
-    assert "Knowledge base: not built" in app.caption[0].value
-    assert "Injection detection: patterns only." in app.caption[0].value
+    status = sidebar_status(app)
+    assert status["Knowledge base"].startswith("not built")
+    assert status["Injection detection"] == "Patterns only"
+    assert "No LLM is configured" in status["Analyst"]
+    assert metrics(app) == {
+        "Host events": "13",
+        "Network detections": "-",
+        "Investigated": "0",
+        "Malicious": "0",
+        "Needs review": "0",
+    }
 
     app.button(key="host-one").click().run()
     assert not app.exception
-    assert [metric.label for metric in app.metric] == ["Verdict", "Severity", "Confidence"]
     assert "Not investigated yet." not in infos(app)
     (result,) = app.session_state["results"].values()
     assert result["report_pdf"].startswith(b"%PDF-")  # rendered for the download button
+    assert metrics(app)["Investigated"] == "1"  # counted in the same rerun as the click
+    badges = [str(md.value) for md in app.markdown if "-badge[" in str(md.value)]
+    assert any("alicious]" in badge for badge in badges)
+    assert any(f"{result['verdict']['severity']} severity]" in badge for badge in badges)
+    assert app.dataframe[0].value["verdict"].iloc[0] != ""  # the feed shows the new verdict
 
 
 def test_investigate_all_flags_the_injected_alert_for_review() -> None:
@@ -66,11 +94,12 @@ def test_network_tab_investigates_detections_from_a_built_detector(
 
     app = AppTest.from_file(APP, default_timeout=60).run()
     assert not app.exception
-    assert "Flow detector: isolation_forest" in app.caption[0].value
+    assert sidebar_status(app)["Flow detector"] == "isolation_forest"
+    assert metrics(app)["Network detections"] == "30"
     detections = app.dataframe[1].value
     assert len(detections) == 30
     assert "ground_truth" in detections.columns
-    assert "never to the analyst" in app.caption[1].value
+    assert any("never to the analyst" in caption for caption in captions(app))
 
     app.button(key="flow-all").click().run()
     assert not app.exception
@@ -78,4 +107,14 @@ def test_network_tab_investigates_detections_from_a_built_detector(
     assert len(results) == 30  # only the flow alerts were investigated
     scans = [r for r in results.values() if r["verdict"]["attack_techniques"] == ["T1046"]]
     assert scans
+    assert metrics(app)["Investigated"] == "30"
     assert all("PortScan" not in r["report_markdown"] for r in results.values())
+
+
+def test_technique_links_only_well_formed_ids() -> None:
+    from ui.app import technique_markdown
+
+    assert technique_markdown("T1046") == "[T1046](https://attack.mitre.org/techniques/T1046/)"
+    assert technique_markdown("T1059.001") == "[T1059.001](https://attack.mitre.org/techniques/T1059/001/)"
+    assert technique_markdown("[x](https://evil.example)") == "`[x](https://evil.example)`"
+    assert technique_markdown("T1`046") == "`T1046`"

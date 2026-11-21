@@ -32,6 +32,7 @@ COPY guardrails ./guardrails
 COPY eval ./eval
 COPY api ./api
 COPY ui ./ui
+COPY .streamlit ./.streamlit
 RUN uv sync --locked --no-dev
 
 # Run as an unprivileged user; it only needs to read /app.

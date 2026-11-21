@@ -512,9 +512,14 @@ payload sits - and was closed as benign. A client also cannot trim or rewrite
 the evidence for a stored event this way.
 
 **Dashboard** (`make ui`): a host-events tab and a network-detections tab,
-each with its feed, bulk and single investigation, verdict, severity,
-confidence, guardrail warnings, the reasoning trace, what the analyst was
-shown, a severity chart, and report downloads in Markdown and PDF.
+each with its feed (a verdict column fills in as alerts are investigated),
+bulk and single investigation, the verdict as badges (outcome, severity,
+human-review flag) with a confidence bar and ATT&CK techniques linked to
+MITRE, guardrail warnings, the reasoning trace, what the analyst was shown, a
+severity chart, and report downloads in Markdown and PDF. A row of headline
+counts sits above the tabs, and the sidebar lists which components are
+running (knowledge base, flow detector, injection classifier) and why any
+are not.
 
 Both load the knowledge base and detector when they are built and say plainly
 when they are not. Investigations use the offline rule-based analyst
