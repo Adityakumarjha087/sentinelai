@@ -38,6 +38,8 @@ SEVERITY_COLORS: dict[str, Literal["blue", "yellow", "orange", "red"]] = {
 }
 # ATT&CK ids come from the analyst's output; only well-formed ones become links.
 TECHNIQUE_RE = re.compile(r"^T(\d{4})(?:\.(\d{3}))?$")
+# Markdown (and Streamlit directive) punctuation, escaped in text the analyst wrote.
+MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()<>#+\-.!|~$:])")
 FEED_COLUMN_CONFIG = {
     "verdict": st.column_config.TextColumn(
         "verdict", width="medium", pinned=True, help="Outcome once investigated (severity in brackets)"
@@ -146,6 +148,11 @@ def overview(loaded: Resources, results: dict[str, dict[str, Any]]) -> None:
     columns[4].metric("Needs review", sum(v["needs_human_review"] for v in verdicts), border=True)
 
 
+def inert(text: str) -> str:
+    """Analyst-written text for st.markdown, shown as typed: no links, images, colours or formatting."""
+    return MARKDOWN_SPECIAL.sub(r"\\\1", " ".join(str(text).split()))
+
+
 def technique_markdown(technique: str) -> str:
     """A link to the technique's ATT&CK page, or the id as inert code if it is not well formed."""
     match = TECHNIQUE_RE.match(technique)
@@ -197,7 +204,7 @@ def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever:
     else:
         show_verdict(result["verdict"])
         for note in result["verdict"]["notes"]:
-            st.error(f"Guardrail: {note}", icon=":material/shield:")
+            st.error(f"Guardrail: {inert(note)}", icon=":material/shield:")
     with st.expander("What the analyst sees"):
         st.json(alert)
     if result is None:

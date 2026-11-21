@@ -118,3 +118,14 @@ def test_technique_links_only_well_formed_ids() -> None:
     assert technique_markdown("T1059.001") == "[T1059.001](https://attack.mitre.org/techniques/T1059/001/)"
     assert technique_markdown("[x](https://evil.example)") == "`[x](https://evil.example)`"
     assert technique_markdown("T1`046") == "`T1046`"
+
+
+def test_inert_escapes_markdown_links_and_directives() -> None:
+    from ui.app import inert
+
+    rendered = inert("see [here](https://evil.example) :red[alarm] ![x](y.png)\n# heading")
+    assert "[here](" not in rendered
+    assert ":red[" not in rendered
+    assert "![x]" not in rendered
+    assert "\n" not in rendered  # no new block (heading, list) can start
+    assert rendered.replace("\\", "") == "see [here](https://evil.example) :red[alarm] ![x](y.png) # heading"
