@@ -102,6 +102,11 @@ def investigate(alerts: list[dict[str, Any]]) -> None:
         results[alert["event_id"]] = run_investigation(alert, events, loaded.retriever, None)
 
 
+def clear_results() -> None:
+    """Button callback: forget every investigation in this session (feeds, counts and chart reset)."""
+    results_store().clear()
+
+
 def host_events(events: pd.DataFrame) -> pd.DataFrame:
     """Host events, newest first, each flagged if it looks like a prompt injection."""
     frame = events.copy()
@@ -150,6 +155,15 @@ def sidebar(loaded: Resources) -> None:
             st.markdown(f"{icon} **{component.name}**")
             st.caption(component.detail)
         st.divider()
+        st.subheader("Session", anchor=False)
+        st.button(
+            "Clear investigations",
+            key="clear-results",
+            icon=":material/delete_sweep:",
+            on_click=clear_results,
+            disabled=not results_store(),
+            width="stretch",
+        )
         st.caption(
             "Investigations run in this process with the offline analyst. Anything that would change a "
             "system is left as a recommendation for a person to approve."

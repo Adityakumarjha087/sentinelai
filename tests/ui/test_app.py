@@ -222,3 +222,15 @@ def test_selected_row_maps_through_the_filter_to_the_full_feed() -> None:
     assert picked_index([1], ["b", "d"], all_ids) == 3  # second row of a filtered view
     assert picked_index([], ["b", "d"], all_ids) is None  # selection cleared
     assert picked_index([5], ["b", "d"], all_ids) is None  # stale selection after the filter changed
+
+
+def test_clear_investigations_resets_counts_and_feed() -> None:
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    assert app.button(key="clear-results").disabled  # nothing to clear yet
+    app.button(key="host-all").click().run()
+    assert metrics(app)["Investigated"] == "13"
+    app.button(key="clear-results").click().run()
+    assert not app.exception
+    assert metrics(app)["Investigated"] == "0"
+    assert set(app.dataframe[0].value["verdict"]) == {""}
+    assert app.button(key="clear-results").disabled
