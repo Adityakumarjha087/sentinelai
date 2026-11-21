@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
@@ -176,3 +177,13 @@ def test_severity_chart_counts_every_level_in_order() -> None:
     assert list(frame["severity"]) == SEVERITIES
     assert list(frame["alerts"]) == [1, 0, 2, 1]
     assert chart.to_dict()["encoding"]["color"]["scale"]["domain"] == SEVERITIES
+
+
+def test_anomaly_scores_are_bars_scaled_to_the_highest_score() -> None:
+    from ui.app import feed_column_config
+
+    config = feed_column_config(pd.DataFrame({"anomaly_score": [0.1, 0.4, 0.25]}))
+    bar = config["anomaly_score"]
+    assert bar["type_config"]["type"] == "progress"
+    assert bar["type_config"]["max_value"] == 0.4
+    assert "anomaly_score" not in feed_column_config(pd.DataFrame({"host": ["a"]}))

@@ -52,7 +52,6 @@ FEED_COLUMN_CONFIG = {
     "injection_suspected": st.column_config.CheckboxColumn(
         "injection?", help="Text in the event looks like instructions to an AI"
     ),
-    "anomaly_score": st.column_config.NumberColumn("anomaly score", format="%.3f"),
     GROUND_TRUTH: st.column_config.TextColumn(GROUND_TRUTH, help="Dataset label: shown here, never to the analyst"),
 }
 
@@ -70,6 +69,20 @@ class Component:
 def resources() -> Resources:
     """Sample events plus whichever optional artifacts are built, loaded once per process."""
     return load_resources()
+
+
+def feed_column_config(table: pd.DataFrame) -> dict[str, Any]:
+    """Column display settings; anomaly scores become bars scaled to the highest score in view."""
+    config: dict[str, Any] = dict(FEED_COLUMN_CONFIG)
+    if "anomaly_score" in table and not table.empty:
+        config["anomaly_score"] = st.column_config.ProgressColumn(
+            "anomaly score",
+            format="%.3f",
+            min_value=0.0,
+            max_value=max(float(table["anomaly_score"].max()), 1e-9),
+            help="Detector score; higher is more unusual. Bars are relative to the highest score shown.",
+        )
+    return config
 
 
 def results_store() -> dict[str, dict[str, Any]]:
@@ -327,7 +340,7 @@ def alert_panel(
             shown[[column for column in columns if column in shown]],
             hide_index=True,
             width="stretch",
-            column_config=FEED_COLUMN_CONFIG,
+            column_config=feed_column_config(table),
         )
         if done:
             st.subheader("Severity of investigated alerts", anchor=False)
