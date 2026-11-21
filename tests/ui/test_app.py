@@ -165,3 +165,14 @@ def test_trace_renders_numbered_tool_calls_and_replies() -> None:
     assert ('{\n  "events": [\n    1,\n    2\n  ]\n}', "json") in blocks  # tool output pretty-printed
     assert any(value == "plain text, not json" and language != "json" for value, language in blocks)
     assert any(value == '{\n  "is_malicious": true\n}' for value, _ in blocks)
+
+
+def test_severity_chart_counts_every_level_in_order() -> None:
+    from ui.app import SEVERITIES, severity_chart
+
+    results = [{"verdict": {"severity": level}} for level in ["high", "low", "high", "critical"]]
+    chart = severity_chart(results)
+    frame = chart.data
+    assert list(frame["severity"]) == SEVERITIES
+    assert list(frame["alerts"]) == [1, 0, 2, 1]
+    assert chart.to_dict()["encoding"]["color"]["scale"]["domain"] == SEVERITIES

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -37,6 +38,8 @@ SEVERITY_COLORS: dict[str, Literal["blue", "yellow", "orange", "red"]] = {
     "high": "orange",
     "critical": "red",
 }
+# Bar colours for the severity chart, in step with the badge colours above.
+SEVERITY_HEX = {"low": "#3b82f6", "medium": "#eab308", "high": "#f97316", "critical": "#ef4444"}
 # ATT&CK ids come from the analyst's output; only well-formed ones become links.
 TECHNIQUE_RE = re.compile(r"^T(\d{4})(?:\.(\d{3}))?$")
 # Markdown (and Streamlit directive) punctuation, escaped in text the analyst wrote.
@@ -169,6 +172,28 @@ def verdict_label(result: dict[str, Any] | None) -> str:
     verdict = result["verdict"]
     outcome = "malicious" if verdict["is_malicious"] else "not malicious"
     return f"{outcome} ({verdict['severity']})"
+
+
+def severity_chart(results: list[dict[str, Any]]) -> alt.Chart:
+    """Investigated alerts per severity, every level shown, bars coloured like the severity badges."""
+    counts = pd.Series([result["verdict"]["severity"] for result in results]).value_counts()
+    frame = pd.DataFrame({"severity": SEVERITIES, "alerts": counts.reindex(SEVERITIES, fill_value=0).to_numpy()})
+    chart: alt.Chart = (
+        alt.Chart(frame)
+        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+        .encode(
+            x=alt.X("severity:N", sort=SEVERITIES, title="severity", axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("alerts:Q", title="alerts", axis=alt.Axis(tickMinStep=1)),
+            color=alt.Color(
+                "severity:N",
+                scale=alt.Scale(domain=SEVERITIES, range=[SEVERITY_HEX[level] for level in SEVERITIES]),
+                legend=None,
+            ),
+            tooltip=["severity:N", "alerts:Q"],
+        )
+        .properties(height=260)
+    )
+    return chart
 
 
 def report_pdf(result: dict[str, Any], alert: dict[str, Any], retriever: HybridRetriever | None) -> bytes:
@@ -306,8 +331,7 @@ def alert_panel(
         )
         if done:
             st.subheader("Severity of investigated alerts", anchor=False)
-            counts = pd.Series([result["verdict"]["severity"] for result in done]).value_counts()
-            st.bar_chart(counts.reindex(SEVERITIES, fill_value=0), x_label="severity", y_label="alerts")
+            st.altair_chart(severity_chart(done), width="stretch")
 
     with detail:
         st.subheader("Investigation", anchor=False)
