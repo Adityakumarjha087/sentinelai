@@ -73,6 +73,19 @@ def test_dashboard_renders_feed_and_investigates_an_alert() -> None:
     assert app.dataframe[0].value["verdict"].iloc[0] != ""  # the feed shows the new verdict
 
 
+def test_verdict_card_lists_evidence_and_actions_needing_approval() -> None:
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    app.button(key="host-all").click().run()
+    lsass = next(i for i, option in enumerate(app.selectbox(key="host-pick").options) if "process_access" in option)
+    app.selectbox(key="host-pick").set_value(lsass).run()
+    assert not app.exception
+    text = "\n".join(str(md.value) for md in app.markdown)
+    assert "**Evidence**" in text
+    assert "lsass" in text
+    assert "**Recommended actions**" in text
+    assert "needs approval]" in text
+
+
 def test_investigate_all_flags_the_injected_alert_for_review() -> None:
     app = AppTest.from_file(APP, default_timeout=30).run()
     app.button(key="host-all").click().run()

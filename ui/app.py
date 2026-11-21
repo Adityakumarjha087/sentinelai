@@ -182,7 +182,7 @@ def report_pdf(result: dict[str, Any], alert: dict[str, Any], retriever: HybridR
 
 
 def show_verdict(verdict: dict[str, Any]) -> None:
-    """Outcome, severity and review flag as badges, then confidence and ATT&CK mapping."""
+    """Outcome, severity and review flag as badges, then confidence, ATT&CK, evidence and actions."""
     with st.container(border=True):
         with st.container(horizontal=True, gap="small"):
             if verdict["is_malicious"]:
@@ -195,6 +195,17 @@ def show_verdict(verdict: dict[str, Any]) -> None:
         st.progress(verdict["confidence"], text=f"Confidence {verdict['confidence']:.0%}")
         techniques = " · ".join(technique_markdown(t) for t in verdict["attack_techniques"])
         st.markdown(f"**ATT&CK** {techniques or 'none mapped'}")
+        if verdict["evidence"]:
+            st.markdown("**Evidence**\n" + "\n".join(f"- {inert(item)}" for item in verdict["evidence"]))
+        if verdict["recommended_actions"]:
+            st.markdown(
+                "**Recommended actions**\n"
+                + "\n".join(
+                    f"- {inert(action['action'])}"
+                    + (" :orange-badge[:material/lock: needs approval]" if action["requires_human_approval"] else "")
+                    for action in verdict["recommended_actions"]
+                )
+            )
 
 
 def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever: HybridRetriever | None) -> None:
