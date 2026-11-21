@@ -109,7 +109,19 @@ def tour(page: Page, ui: str, api: str | None) -> list[tuple[str, float, Callabl
         settle(page)
         reveal(page.get_by_text("Severity of investigated alerts").last, margin=160)
 
+    def filter_malicious_flows() -> None:
+        page.locator(".st-key-flow-filter button", has_text="Malicious").click()
+        settle(page)
+        table = page.locator(".st-key-flow-table-Malicious")
+        box = table.bounding_box()
+        if box is not None:  # select the first row: it opens under Investigation
+            page.mouse.click(box["x"] + 14, box["y"] + 52)
+            settle(page)
+        reveal(page.locator(".st-key-flow-filter"), margin=120)
+
     def investigate_scan() -> None:
+        page.locator(".st-key-flow-filter button", has_text="All").click()
+        settle(page)
         pick(page, "flow-pick", "172.16.0.1 ->")
         page.locator(".st-key-flow-one button").click()
         settle(page)
@@ -124,6 +136,7 @@ def tour(page: Page, ui: str, api: str | None) -> list[tuple[str, float, Callabl
         ("Incident report: ATT&CK mapping and mitigations from the knowledge base.", 4.0, open_report),
         ("Network: the autoencoder flagged 162,678 of 286,467 port-scan-day flows.", 4.0, open_network),
         ("500 flagged flows investigated by the offline baseline analyst.", 3.5, investigate_all_flows),
+        ("Filter to malicious verdicts; select a row for its evidence and actions.", 4.5, filter_malicious_flows),
         ("What the analyst sees: behaviour and score, no dataset label.", 4.5, investigate_scan),
     ]  # fmt: skip
     if api is not None:

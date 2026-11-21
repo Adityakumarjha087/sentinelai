@@ -10,7 +10,7 @@ the analyst.
 
 > **Defensive use only.** This project contains no offensive tooling.
 
-![SentinelAI dashboard: a prompt-injected Sysmon alert investigated and flagged, its incident report, the flow detector's alerts and their investigation, and the REST API](docs/demo.gif)
+![SentinelAI dashboard: a prompt-injected Sysmon alert investigated and flagged, its incident report, the flow detector's alerts investigated and filtered to the malicious ones, what the analyst sees, and the REST API](docs/demo.gif)
 
 _Recorded with `make demo-gif` against `docker compose up` with the real
 CICIDS2017 detector and ATT&CK knowledge base loaded. Investigations use the
@@ -512,14 +512,19 @@ payload sits - and was closed as benign. A client also cannot trim or rewrite
 the evidence for a stored event this way.
 
 **Dashboard** (`make ui`): a host-events tab and a network-detections tab,
-each with its feed (a verdict column fills in as alerts are investigated),
-bulk and single investigation, the verdict as badges (outcome, severity,
-human-review flag) with a confidence bar and ATT&CK techniques linked to
-MITRE, guardrail warnings, the reasoning trace, what the analyst was shown, a
-severity chart, and report downloads in Markdown and PDF. A row of headline
-counts sits above the tabs, and the sidebar lists which components are
-running (knowledge base, flow detector, injection classifier) and why any
-are not.
+each with its feed (a verdict column fills in as alerts are investigated;
+filter to not investigated, malicious or needs review; select a row to open
+it; flow scores drawn as bars), bulk and single investigation, guardrail
+warnings, the verdict as badges (outcome, severity, human-review flag) with a
+confidence bar, ATT&CK techniques linked to MITRE, the evidence and the
+recommended actions (those needing approval marked), the reasoning trace step
+by step, what the analyst was shown, a severity chart, and report downloads
+in Markdown and PDF. A row of headline counts sits above the tabs; the
+sidebar lists which components are running (knowledge base, flow detector,
+injection classifier) and why any are not, and can clear the session or
+export its triage results as CSV. Analyst-written text is displayed inert
+(no markdown links or formatting), and CSV cells are defused against
+spreadsheet formulas.
 
 Both load the knowledge base and detector when they are built and say plainly
 when they are not. Investigations use the offline rule-based analyst
