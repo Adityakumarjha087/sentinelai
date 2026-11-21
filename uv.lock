@@ -2999,7 +2999,7 @@ requires-dist = [
     { name = "rank-bm25", specifier = ">=0.2.2" },
     { name = "scikit-learn", specifier = ">=1.5" },
     { name = "sentence-transformers", specifier = ">=3" },
-    { name = "streamlit", specifier = ">=1.38" },
+    { name = "streamlit", specifier = ">=1.67" },
     { name = "torch", marker = "sys_platform != 'linux'", specifier = ">=2.3" },
     { name = "torch", marker = "sys_platform == 'linux'", specifier = ">=2.3", index = "https://download.pytorch.org/whl/cpu" },
     { name = "transformers", specifier = ">=4.44" },
