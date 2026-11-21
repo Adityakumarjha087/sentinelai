@@ -11,6 +11,7 @@ import re
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -196,6 +197,20 @@ def filter_feed(table: pd.DataFrame, results: dict[str, dict[str, Any]], choice:
     return table[[keep(event_id) for event_id in table["event_id"]]]
 
 
+def picked_index(selected_rows: list[int], shown_ids: list[str], all_ids: list[str]) -> int | None:
+    """Position in the full feed of the row selected in the (possibly filtered) table."""
+    if not selected_rows or selected_rows[0] >= len(shown_ids):
+        return None
+    return all_ids.index(shown_ids[selected_rows[0]])
+
+
+def select_row(key: str, table_key: str, shown_ids: list[str], all_ids: list[str]) -> None:
+    """Table callback: open the clicked alert in the investigation panel."""
+    index = picked_index(list(st.session_state[table_key].selection.rows), shown_ids, all_ids)
+    if index is not None:
+        st.session_state[f"{key}-pick"] = index
+
+
 def verdict_label(result: dict[str, Any] | None) -> str:
     if result is None:
         return ""
@@ -357,6 +372,8 @@ def alert_panel(
         )
         shown = filter_feed(table, results, feed_filter)
         shown = shown.assign(verdict=[verdict_label(results.get(event_id)) for event_id in shown["event_id"]])
+        # One table key per filter: a selection made in one view never ticks a different row in another.
+        table_key = f"{key}-table-{feed_filter or 'All'}"
         if shown.empty:
             st.caption("No alerts match this filter.")
         else:
@@ -365,7 +382,11 @@ def alert_panel(
                 hide_index=True,
                 width="stretch",
                 column_config=feed_column_config(table),
+                key=table_key,
+                on_select=partial(select_row, key, table_key, list(shown["event_id"]), list(table["event_id"])),
+                selection_mode="single-row",
             )
+            st.caption("Select a row to open it under Investigation.")
         if done:
             st.subheader("Severity of investigated alerts", anchor=False)
             st.altair_chart(severity_chart(done), width="stretch")

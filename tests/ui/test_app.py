@@ -213,3 +213,12 @@ def test_malicious_filter_shows_only_malicious_host_events() -> None:
     malicious = sum(r["verdict"]["is_malicious"] for r in app.session_state["results"].values())
     assert len(shown) == malicious > 0
     assert all(label.startswith("malicious") for label in shown["verdict"])
+
+
+def test_selected_row_maps_through_the_filter_to_the_full_feed() -> None:
+    from ui.app import picked_index
+
+    all_ids = ["a", "b", "c", "d"]
+    assert picked_index([1], ["b", "d"], all_ids) == 3  # second row of a filtered view
+    assert picked_index([], ["b", "d"], all_ids) is None  # selection cleared
+    assert picked_index([5], ["b", "d"], all_ids) is None  # stale selection after the filter changed
