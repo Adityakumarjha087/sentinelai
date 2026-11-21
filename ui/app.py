@@ -107,6 +107,32 @@ def clear_results() -> None:
     results_store().clear()
 
 
+def spreadsheet_safe(value: Any) -> Any:
+    """Text a spreadsheet would run as a formula gets a leading quote; everything else is unchanged."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
+def triage_csv(results: dict[str, dict[str, Any]]) -> str:
+    """One row per investigated alert: outcome, severity, confidence, review flag, ATT&CK, guardrail notes."""
+    rows = [
+        {
+            "event_id": event_id,
+            "malicious": result["verdict"]["is_malicious"],
+            "severity": result["verdict"]["severity"],
+            "confidence": result["verdict"]["confidence"],
+            "needs_human_review": result["verdict"]["needs_human_review"],
+            "attack_techniques": ";".join(result["verdict"]["attack_techniques"]),
+            "guardrail_notes": " | ".join(result["verdict"]["notes"]),
+            "analyst": result["analyst"],
+        }
+        for event_id, result in results.items()
+    ]
+    frame = pd.DataFrame(rows, columns=list(rows[0]) if rows else ["event_id"])
+    return frame.map(spreadsheet_safe).to_csv(index=False)
+
+
 def host_events(events: pd.DataFrame) -> pd.DataFrame:
     """Host events, newest first, each flagged if it looks like a prompt injection."""
     frame = events.copy()
@@ -161,6 +187,16 @@ def sidebar(loaded: Resources) -> None:
             key="clear-results",
             icon=":material/delete_sweep:",
             on_click=clear_results,
+            disabled=not results_store(),
+            width="stretch",
+        )
+        st.download_button(
+            "Triage summary (.csv)",
+            triage_csv(results_store()),
+            file_name="sentinelai-triage.csv",
+            mime="text/csv",
+            key="download-triage",
+            icon=":material/table_view:",
             disabled=not results_store(),
             width="stretch",
         )

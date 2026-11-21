@@ -234,3 +234,25 @@ def test_clear_investigations_resets_counts_and_feed() -> None:
     assert metrics(app)["Investigated"] == "0"
     assert set(app.dataframe[0].value["verdict"]) == {""}
     assert app.button(key="clear-results").disabled
+
+
+def test_triage_csv_has_one_row_per_result_and_defuses_formulas() -> None:
+    import csv
+    import io
+
+    from ui.app import triage_csv
+
+    verdict = {
+        "is_malicious": True,
+        "severity": "high",
+        "confidence": 0.8,
+        "needs_human_review": False,
+        "attack_techniques": ["T1003.001", "T1059"],
+        "notes": ['=HYPERLINK("https://evil.example")'],
+    }
+    rows = list(csv.DictReader(io.StringIO(triage_csv({"evt-1": {"verdict": verdict, "analyst": "RuleBasedAnalyst"}}))))
+    assert len(rows) == 1
+    assert rows[0]["event_id"] == "evt-1"
+    assert rows[0]["attack_techniques"] == "T1003.001;T1059"
+    assert rows[0]["guardrail_notes"].startswith("'=")  # shown as text, never run as a formula
+    assert triage_csv({}).strip() == "event_id"
