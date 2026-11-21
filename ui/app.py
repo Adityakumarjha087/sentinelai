@@ -6,6 +6,7 @@ knowledge base light up when they are built (``make data train`` and ``make kb``
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from collections.abc import Callable
@@ -208,6 +209,29 @@ def show_verdict(verdict: dict[str, Any]) -> None:
             )
 
 
+def pretty(text: str) -> tuple[str, str | None]:
+    """Pretty-printed JSON and its language if ``text`` parses as JSON, else the text unchanged."""
+    try:
+        return json.dumps(json.loads(text), indent=2, ensure_ascii=False), "json"
+    except (TypeError, ValueError):
+        return text, None
+
+
+def show_trace(trace: list[dict[str, Any]]) -> None:
+    """Each step in order: tool calls with arguments and output, and the analyst's replies."""
+    for number, step in enumerate(trace, start=1):
+        if "tool" in step:
+            st.markdown(f"**{number}. Tool call** · `{str(step['tool']).replace('`', '')}`")
+            st.code(json.dumps(step.get("arguments", {}), indent=2, default=str), language="json")
+            body, language = pretty(str(step.get("output", "")))
+            st.caption("Output")
+            st.code(body, language=language, wrap_lines=True, height=320 if body.count("\n") > 14 else "content")
+        else:
+            st.markdown(f"**{number}. Analyst reply**")
+            body, language = pretty(str(step.get("model", "")))
+            st.code(body, language=language, wrap_lines=True)
+
+
 def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever: HybridRetriever | None) -> None:
     """Verdict, guardrail notes, trace and report for one investigated alert."""
     if result is None:
@@ -221,7 +245,11 @@ def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever:
     if result is None:
         return
     with st.expander(f"Reasoning trace ({len(result['trace'])} steps, analyst: {result['analyst']})"):
-        st.json(result["trace"])
+        steps_tab, json_tab = st.tabs(["Steps", "JSON"])
+        with steps_tab:
+            show_trace(result["trace"])
+        with json_tab:
+            st.json(result["trace"])
     with st.expander("Incident report"):
         st.markdown(result["report_markdown"])
     with st.container(horizontal=True, gap="small"):

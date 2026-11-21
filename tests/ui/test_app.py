@@ -142,3 +142,26 @@ def test_inert_escapes_markdown_links_and_directives() -> None:
     assert "![x]" not in rendered
     assert "\n" not in rendered  # no new block (heading, list) can start
     assert rendered.replace("\\", "") == "see [here](https://evil.example) :red[alarm] ![x](y.png) # heading"
+
+
+def _render_trace() -> None:
+    from ui.app import show_trace
+
+    show_trace(
+        [
+            {"tool": "search_logs", "arguments": {"host": "WS-1"}, "output": '{"events": [1, 2]}'},
+            {"tool": "lookup`x", "arguments": {}, "output": "plain text, not json"},
+            {"model": '{"is_malicious": true}'},
+        ]
+    )
+
+
+def test_trace_renders_numbered_tool_calls_and_replies() -> None:
+    app = AppTest.from_function(_render_trace).run()
+    assert not app.exception
+    headings = [str(md.value) for md in app.markdown]
+    assert headings == ["**1. Tool call** · `search_logs`", "**2. Tool call** · `lookupx`", "**3. Analyst reply**"]
+    blocks = [(block.value, block.language) for block in app.code]
+    assert ('{\n  "events": [\n    1,\n    2\n  ]\n}', "json") in blocks  # tool output pretty-printed
+    assert any(value == "plain text, not json" and language != "json" for value, language in blocks)
+    assert any(value == '{\n  "is_malicious": true\n}' for value, _ in blocks)
