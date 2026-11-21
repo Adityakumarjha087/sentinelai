@@ -32,6 +32,7 @@ from rag.retriever import HybridRetriever
 HOST_COLUMNS = ["verdict", "timestamp", "event_type", "host", "process", "dst_ip", "injection_suspected"]
 FLOW_COLUMNS = ["verdict", "timestamp", "src_ip", "dst_ip", "dst_port", "anomaly_score", GROUND_TRUTH]
 SEVERITIES = ["low", "medium", "high", "critical"]
+FEED_FILTERS = ["All", "Not investigated", "Malicious", "Needs review"]
 SEVERITY_COLORS: dict[str, Literal["blue", "yellow", "orange", "red"]] = {
     "low": "blue",
     "medium": "yellow",
@@ -177,6 +178,22 @@ def technique_markdown(technique: str) -> str:
         return f"`{technique.replace('`', '')}`"
     path = f"T{match[1]}/{match[2]}" if match[2] else f"T{match[1]}"
     return f"[{technique}](https://attack.mitre.org/techniques/{path}/)"
+
+
+def filter_feed(table: pd.DataFrame, results: dict[str, dict[str, Any]], choice: str | None) -> pd.DataFrame:
+    """The rows of ``table`` that match a feed filter; ``None`` (nothing picked) means all."""
+    if choice in (None, "All"):
+        return table
+
+    def keep(event_id: str) -> bool:
+        result = results.get(event_id)
+        if choice == "Not investigated":
+            return result is None
+        if result is None:
+            return False
+        return bool(result["verdict"]["is_malicious" if choice == "Malicious" else "needs_human_review"])
+
+    return table[[keep(event_id) for event_id in table["event_id"]]]
 
 
 def verdict_label(result: dict[str, Any] | None) -> str:
@@ -335,13 +352,20 @@ def alert_panel(
                 icon=":material/manage_search:",
                 on_click=lambda: investigate([to_alert(row) for row in rows]),
             )
-        shown = table.assign(verdict=[verdict_label(results.get(event_id)) for event_id in table["event_id"]])
-        st.dataframe(
-            shown[[column for column in columns if column in shown]],
-            hide_index=True,
-            width="stretch",
-            column_config=feed_column_config(table),
+        feed_filter = st.segmented_control(
+            "Show", FEED_FILTERS, default="All", key=f"{key}-filter", label_visibility="collapsed"
         )
+        shown = filter_feed(table, results, feed_filter)
+        shown = shown.assign(verdict=[verdict_label(results.get(event_id)) for event_id in shown["event_id"]])
+        if shown.empty:
+            st.caption("No alerts match this filter.")
+        else:
+            st.dataframe(
+                shown[[column for column in columns if column in shown]],
+                hide_index=True,
+                width="stretch",
+                column_config=feed_column_config(table),
+            )
         if done:
             st.subheader("Severity of investigated alerts", anchor=False)
             st.altair_chart(severity_chart(done), width="stretch")

@@ -187,3 +187,29 @@ def test_anomaly_scores_are_bars_scaled_to_the_highest_score() -> None:
     assert bar["type_config"]["type"] == "progress"
     assert bar["type_config"]["max_value"] == 0.4
     assert "anomaly_score" not in feed_column_config(pd.DataFrame({"host": ["a"]}))
+
+
+def test_feed_filter_narrows_rows_by_investigation_outcome() -> None:
+    from ui.app import filter_feed
+
+    table = pd.DataFrame({"event_id": ["a", "b", "c"]})
+    results = {
+        "a": {"verdict": {"is_malicious": True, "needs_human_review": False}},
+        "b": {"verdict": {"is_malicious": False, "needs_human_review": True}},
+    }
+    assert list(filter_feed(table, results, None)["event_id"]) == ["a", "b", "c"]
+    assert list(filter_feed(table, results, "All")["event_id"]) == ["a", "b", "c"]
+    assert list(filter_feed(table, results, "Not investigated")["event_id"]) == ["c"]
+    assert list(filter_feed(table, results, "Malicious")["event_id"]) == ["a"]
+    assert list(filter_feed(table, results, "Needs review")["event_id"]) == ["b"]
+
+
+def test_malicious_filter_shows_only_malicious_host_events() -> None:
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    app.button(key="host-all").click().run()
+    app.button_group(key="host-filter").set_value("Malicious").run()
+    assert not app.exception
+    shown = app.dataframe[0].value
+    malicious = sum(r["verdict"]["is_malicious"] for r in app.session_state["results"].values())
+    assert len(shown) == malicious > 0
+    assert all(label.startswith("malicious") for label in shown["verdict"])
