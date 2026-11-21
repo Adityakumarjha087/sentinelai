@@ -96,6 +96,11 @@ def test_investigate_all_flags_the_injected_alert_for_review() -> None:
     flagged = [r for r in results.values() if any("instructions to an AI" in n for n in r["verdict"]["notes"])]
     assert len(flagged) == 1
 
+    (injected,) = flagged
+    position = list(results).index(next(k for k, r in results.items() if r is injected))
+    app.selectbox(key="host-pick").set_value(position).run()
+    assert "instructions to an AI" in str(app.error[0].value)  # the guardrail warning is shown
+
 
 def test_network_tab_investigates_detections_from_a_built_detector(
     flow_artifacts: FlowArtifacts, monkeypatch: pytest.MonkeyPatch

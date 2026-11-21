@@ -357,9 +357,10 @@ def show_result(result: dict[str, Any] | None, alert: dict[str, Any], retriever:
     if result is None:
         st.info("Not investigated yet.", icon=":material/hourglass_empty:")
     else:
-        show_verdict(result["verdict"])
+        # Guardrail warnings first: they qualify everything the verdict card says.
         for note in result["verdict"]["notes"]:
             st.error(f"Guardrail: {inert(note)}", icon=":material/shield:")
+        show_verdict(result["verdict"])
     with st.expander("What the analyst sees"):
         st.json(alert)
     if result is None:
